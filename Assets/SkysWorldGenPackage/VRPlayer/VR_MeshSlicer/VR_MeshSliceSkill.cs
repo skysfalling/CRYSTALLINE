@@ -79,7 +79,7 @@ public class VR_MeshSliceSkill : MonoBehaviour
         }
 
         Debug.Log("Create Mesh Slice Mesh");
-
+        Destroy(meshSliceLaser); // destroy old mesh laser
         meshSliceLaser = new GameObject();
         meshSliceLaser.name = "MeshSliceLaser";
 
@@ -214,7 +214,19 @@ public class VR_MeshSliceSkill : MonoBehaviour
     {
         Debug.Log("Combine");
 
-        if (!IsConnected(selectedObjects)) { Debug.LogWarning("Selected Mesh are not connected, cannot combine"); return; }
+        if (!IsConnected(selectedObjects)) 
+        { 
+            Debug.LogWarning("Selected Mesh are not connected, cannot combine"); 
+
+            // Duplicate instead
+            foreach (GameObject obj in selectedObjects)
+            {
+                GameObject clone = Instantiate(obj, obj.transform.position, Quaternion.identity);
+                NewSliceSetup(clone);
+            }
+
+            return; 
+        }
 
         // Create a new list to store the combined meshes
         List<CombineInstance> combine = new List<CombineInstance>();
@@ -265,6 +277,8 @@ public class VR_MeshSliceSkill : MonoBehaviour
 
         NewSliceSetup(combinedMeshObj);
 
+        selectedObjects.Clear();
+
     }
 
     public bool IsConnected(List<GameObject> gameObjects)
@@ -278,6 +292,8 @@ public class VR_MeshSliceSkill : MonoBehaviour
         // Loop through each game object in the list
         for (int i = 0; i < gameObjects.Count; i++)
         {
+
+
             // Get the mesh filter component of the current game object
             MeshFilter meshFilter = gameObjects[i].GetComponent<MeshFilter>();
 
@@ -335,8 +351,10 @@ public class VR_MeshSliceSkill : MonoBehaviour
 
     public void NewSliceSetup(GameObject slice, bool freeze = false)
     {
-        slice.tag = "sliceable";
+        if (!slice) { return; }
 
+        slice.tag = "sliceable";
+        
         XRGrabInteractable interactable = slice.AddComponent<XRGrabInteractable>();
         interactable.trackPosition = false;
         interactable.trackRotation = false;
@@ -366,8 +384,6 @@ public class VR_MeshSliceSkill : MonoBehaviour
 
                 currSliceObject.GetComponentInParent<Rigidbody>().constraints = RigidbodyConstraints.None;
 
-                currSliceObject.GetComponent<MeshCollider>().enabled = true;
-
             }
             // add to list
             else
@@ -380,8 +396,6 @@ public class VR_MeshSliceSkill : MonoBehaviour
                 renderer.material = selectionMaterial;
 
                 currSliceObject.GetComponentInParent<Rigidbody>().constraints = RigidbodyConstraints.FreezeAll;
-
-                currSliceObject.GetComponent<MeshCollider>().enabled = false;
             }
         }
         else { Debug.LogWarning("Could not select, missing Mesh Renderer"); }
