@@ -7,26 +7,29 @@ using Assets.Scripts;
 
 public class VR_MeshSliceSkill : MonoBehaviour
 {
-    public GameObject laserSlicePointPrefab;
-    public List<GameObject> laserSlicePoints;
-    public bool laserMeshCreated;
-    public Material laserMeshMaterial;
-    public GameObject currSliceObject = null;
-
-    [Space(20)]
-    public GameObject defaultSliceObjPrefab;
-
-    public List<Material> sliceMaterials = new List<Material>();
+    public Transform objectCreationParent;
+    
+    public GameObject currSelectedObject = null;
+    
+    [Header("Selection")]
     public Material selectionMaterial;
     public List<GameObject> selectedObjects = new List<GameObject>();
     public List<Material> selectedObjectsOriginalMaterials = new List<Material>();
 
     public float forceAppliedToCut = 0.1f;
 
+    [Header("Mesh Slicer")]
     private Mesh mesh;
     private GameObject meshSliceLaser;
-    private List<Vector3> pointPos;
 
+    public bool laserMeshCreated;
+    public Material laserMeshMaterial;
+    public List<Material> sliceMaterials = new List<Material>();
+
+    [Space(10)]
+    public GameObject laserSlicePointPrefab;
+    public List<GameObject> laserSlicePoints;
+    private List<Vector3> pointPos;
 
     // Start is called before the first frame update
     void Start()
@@ -124,9 +127,6 @@ public class VR_MeshSliceSkill : MonoBehaviour
 
         mesh.RecalculateNormals();
         
-
-
-
         laserMeshCreated = true;
     }
     #endregion
@@ -134,7 +134,7 @@ public class VR_MeshSliceSkill : MonoBehaviour
     #region SLICE ======================================================
     public List<GameObject> Slice(GameObject obj = null, List<Vector3> points = null)
     {
-        if (!obj) { obj = currSliceObject; }
+        if (!obj) { obj = currSelectedObject; }
         if (points == null) { points = pointPos; }
 
         // if obj or points still null
@@ -176,7 +176,7 @@ public class VR_MeshSliceSkill : MonoBehaviour
 
         // << SAVE ORIGINAL VALUES >>
         Vector3 originalScale = obj.transform.localScale;
-        Material originalMaterial = obj.GetComponent<MeshRenderer>().material;
+        Material originalMaterial = obj.GetComponentInChildren<MeshRenderer>().material;
 
         // create slices
         GameObject[] slices = Slicer.Slice(plane, obj);
@@ -283,6 +283,8 @@ public class VR_MeshSliceSkill : MonoBehaviour
 
     public bool IsConnected(List<GameObject> gameObjects)
     {
+        if (gameObjects.Count < 2) { return false; }
+
         // Create a set to store the connected game objects
         HashSet<GameObject> connectedObjects = new HashSet<GameObject>();
 
@@ -354,48 +356,57 @@ public class VR_MeshSliceSkill : MonoBehaviour
         if (!slice) { return; }
 
         slice.tag = "sliceable";
-        
+        slice.layer = LayerMask.NameToLayer("Interact Object");
+
+        /*
+        slice.GetComponent<MeshFilter>().mesh.RecalculateBounds();
+        slice.GetComponent<MeshFilter>().mesh.RecalculateNormals();
+        */
+
         XRGrabInteractable interactable = slice.AddComponent<XRGrabInteractable>();
-        interactable.trackPosition = false;
-        interactable.trackRotation = false;
+        //interactable.trackPosition = false;
+        //interactable.trackRotation = false;
 
         if (freeze)
         {
             slice.GetComponent<Rigidbody>().constraints = RigidbodyConstraints.FreezeAll;
         }
+
+        slice.transform.parent = objectCreationParent;
     }
 
     public void SelectObj(GameObject obj)
     {
-        currSliceObject = obj;
+        currSelectedObject = obj;
 
         // get renderer
         MeshRenderer renderer = obj.GetComponentInChildren<MeshRenderer>();
-        if (renderer != null)
+        Sliceable sliceable = obj.GetComponentInChildren<Sliceable>();
+        if (renderer != null && sliceable != null)
         {
             // remove from list
-            if (selectedObjects.Contains(currSliceObject))
+            if (selectedObjects.Contains(currSelectedObject))
             {
-                int objectIndex = selectedObjects.IndexOf(currSliceObject);
+                int objectIndex = selectedObjects.IndexOf(currSelectedObject);
                 renderer.material = selectedObjectsOriginalMaterials[objectIndex];
 
                 selectedObjectsOriginalMaterials.RemoveAt(objectIndex);
-                selectedObjects.Remove(currSliceObject);
+                selectedObjects.Remove(currSelectedObject);
 
-                currSliceObject.GetComponentInParent<Rigidbody>().constraints = RigidbodyConstraints.None;
+                currSelectedObject.GetComponentInParent<Rigidbody>().constraints = RigidbodyConstraints.None;
 
             }
             // add to list
             else
             {
-                Debug.Log("Selected " + currSliceObject, currSliceObject);
+                Debug.Log("Selected " + currSelectedObject, currSelectedObject);
 
-                selectedObjects.Add(currSliceObject);
+                selectedObjects.Add(currSelectedObject);
                 selectedObjectsOriginalMaterials.Add(renderer.material);
 
                 renderer.material = selectionMaterial;
 
-                currSliceObject.GetComponentInParent<Rigidbody>().constraints = RigidbodyConstraints.FreezeAll;
+                currSelectedObject.GetComponentInParent<Rigidbody>().constraints = RigidbodyConstraints.FreezeAll;
             }
         }
         else { Debug.LogWarning("Could not select, missing Mesh Renderer"); }

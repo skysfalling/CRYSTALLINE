@@ -5,9 +5,12 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/VR_Generation.unity
     guid: 2f1bbc802bd64264fbe60b7705bd7bea
+  - enabled: 1
+    path: Assets/Scenes/LaserSlice.unity
+    guid: 196ff1b63da2e5d4c810cc1d1d1bbf09
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: cef6a2419cc20604a80b829a826306af, type: 2}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: ab57bb9609504b447a75ea2409b45944, type: 2}

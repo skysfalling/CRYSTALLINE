@@ -30,7 +30,7 @@ public class ObjectTypeCheckTrigger : MonoBehaviour
 
                     if (createNewMap)
                     {
-                        GameObject.FindGameObjectWithTag("GameManager").GetComponent<GameManager>().LoadNewDungeon();
+                        GameObject.FindGameObjectWithTag("GameManager").GetComponent<GameManager>().RestartScene();
                     }
 
 

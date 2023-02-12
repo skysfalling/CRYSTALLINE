@@ -5,8 +5,11 @@ using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
-    public DungeonGenerationManager dunGenManager;
+    public WorldGenManager worldGen;
     public bool initGameStart;
+
+    public GameObject test_area;
+
 
     [Header("First Person")]
     public GameObject fp_player;
@@ -24,6 +27,7 @@ public class GameManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        worldGen = GetComponentInChildren<WorldGenManager>();
 
         // FIRST PERSON SETUP
         if (fp_player != null)
@@ -49,12 +53,19 @@ public class GameManager : MonoBehaviour
 
     }
 
+    public void StartGame() { StartCoroutine(GameStart()); }
 
     IEnumerator GameStart()
     {
-        StartCoroutine(dunGenManager.Generate(Vector2.zero));
-        yield return new WaitUntil(() => dunGenManager.dungeonStartTile.playerSpawn != null);
+        worldGen.GenerateWorld();
+        yield return new WaitUntil(() => worldGen.startTile != null);
+        yield return new WaitUntil(() => worldGen.startTile.playerSpawn != null);
 
+
+        if (test_area)
+        {
+            test_area.SetActive(false);
+        }
 
         SpawnPlayerInDungeon();
     }
@@ -64,22 +75,22 @@ public class GameManager : MonoBehaviour
 
         if (fp_player != null)
         {
-            fp_player.transform.position = dunGenManager.dungeonStartTile.GetComponent<TileGenerationManager>().playerSpawn.position + new Vector3(0, 2, 0);
+            fp_player.transform.position = worldGen.startTile.playerSpawn.position + new Vector3(0, 2, 0);
 
         }
         else if (vr_rig != null)
         {
             Debug.Log("Spawn VR Player");
 
-            vr_rig.transform.localPosition = dunGenManager.dungeonStartTile.GetComponent<TileGenerationManager>().playerSpawn.position + new Vector3(0, 2, 0);
+            vr_rig.transform.localPosition = worldGen.startTile.playerSpawn.position + new Vector3(0, 2, 0);
             vr_rig.ResetPhysicsHandPosition();
         }
     }
 
 
-    public void LoadNewDungeon()
+    public void RestartScene()
     {
-        SceneManager.LoadScene(dungeonSceneBuildIndex);
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
 }

@@ -22,6 +22,10 @@ public class XR_InputManager : MonoBehaviour
 
     public bool allDevicesFound;
 
+    [Header("Joystick")]
+    public Vector2 l_joystick;
+    public Vector2 r_joystick;
+
     [Header("Trigger")]
     public float leftTrigger_value;
     public float rightTrigger_value;
@@ -84,6 +88,10 @@ public class XR_InputManager : MonoBehaviour
 
     public void GetControllerValues()
     {
+        // JOYSTICKS ===============================================
+        leftController.TryGetFeatureValue(CommonUsages.primary2DAxis, out l_joystick);
+        rightController.TryGetFeatureValue(CommonUsages.primary2DAxis, out r_joystick);
+
 
         // GRIP =================================================
         leftController.TryGetFeatureValue(CommonUsages.grip, out leftGrip_value);

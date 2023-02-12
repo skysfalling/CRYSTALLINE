@@ -16,7 +16,7 @@ namespace Assets.Scripts
         public static GameObject[] Slice(Plane plane, GameObject objectToCut)
         {            
             //Get the current mesh and its verts and tris
-            Mesh mesh = objectToCut.GetComponent<MeshFilter>().mesh;
+            Mesh mesh = objectToCut.GetComponentInChildren<MeshFilter>().mesh;
             var a = mesh.GetSubMesh(0);
             Sliceable sliceable = objectToCut.GetComponent<Sliceable>();
 
@@ -53,7 +53,7 @@ namespace Assets.Scripts
         /// <returns></returns>
         private static GameObject CreateMeshGameObject(GameObject originalObject)
         {
-            var originalMaterial = originalObject.GetComponent<MeshRenderer>().materials;
+            var originalMaterial = originalObject.GetComponentInChildren<MeshRenderer>().materials;
 
             GameObject meshGameObject = new GameObject();
             Sliceable originalSliceable = originalObject.GetComponent<Sliceable>();

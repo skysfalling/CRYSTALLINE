@@ -68,7 +68,7 @@ public class XRHandAbilities : MonoBehaviour
         else if (handMovement.isRightController)
         {
             MeshSlicerSkill();
-            ObjectPickupSkill(true);
+            ObjectPickupSkill();
         }
     }
 
@@ -164,7 +164,7 @@ public class XRHandAbilities : MonoBehaviour
         // <<<< SELECT OBJECT >>>>
         // r secondary button && object not spawned yet
         List<IXRHoverInteractable> hoverObjs = rayInteractor.interactablesHovered;
-        Debug.Log("Hover Interactables: " + rayInteractor.interactablesHovered.Count);
+        //Debug.Log("Hover Interactables: " + rayInteractor.interactablesHovered.Count);
         if (secondaryButton && hoverObjs.Count > 0 && !secondaryButtonDown)
         {
             // select hovered object
@@ -177,7 +177,7 @@ public class XRHandAbilities : MonoBehaviour
 
 
         // <<< SLICE OBJECT >>>
-        Debug.Log("Stick Click: " + stickClick);
+        //Debug.Log("Stick Click: " + stickClick);
         if (stickClick && !stickClickDown)
         {
             stickClickDown = true;

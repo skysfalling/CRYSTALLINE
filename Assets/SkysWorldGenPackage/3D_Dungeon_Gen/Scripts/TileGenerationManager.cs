@@ -12,7 +12,7 @@ public class TileGenerationManager : MonoBehaviour
     [Header("Tile Size =============")]
     public Vector3 tilePosition;
     public int fullTileSize = 50;
-    public int tileLengthCellCount = 10;
+    public int cellsPerTile = 10;
 
     [Header("Tile Data =============")]
     public Vector2 tileCoord = new Vector2();
@@ -143,18 +143,18 @@ public class TileGenerationManager : MonoBehaviour
         env_manager = dunGenManager.env_manager;
 
         // makes sure cell size is never less than 1
-        if (fullTileSize < tileLengthCellCount)
+        if (fullTileSize < cellsPerTile)
         {
-            Debug.LogWarning("Changed TileLengthCellCount from " + tileLengthCellCount + " to " + fullTileSize + " to keep cell size at minimum 1");
+            Debug.LogWarning("Changed TileLengthCellCount from " + cellsPerTile + " to " + fullTileSize + " to keep cell size at minimum 1");
 
             // reset ratio of cellCount / tileSize to 1
-            tileLengthCellCount = fullTileSize;
-            dunGenManager.tileLengthCellCount = fullTileSize;
+            cellsPerTile = fullTileSize;
+            dunGenManager.cellsPerTile = fullTileSize;
 
         }
 
         // set individual cell size
-        cellSize = (fullTileSize / tileLengthCellCount);
+        cellSize = (fullTileSize / cellsPerTile);
 
         // set max value of coords
         cellCoordMax = (fullTileSize / cellSize) - 1;
@@ -288,7 +288,7 @@ public class TileGenerationManager : MonoBehaviour
 
 
         // create random obstacles in empty cells
-        CreateRandomObstacles(dunGenManager.obstacleRandomness);
+        CreateRandomObstacles(dunGenManager.obstacleSpawnWeight);
 
 
         // spawn models for each cell
@@ -393,7 +393,7 @@ public class TileGenerationManager : MonoBehaviour
 
         yield return new WaitForSeconds(delay);
 
-        CreateRandomObstacles(dunGenManager.obstacleRandomness);
+        CreateRandomObstacles(dunGenManager.obstacleSpawnWeight);
         Debug.Log(">>>> created obstacles", this.gameObject);
 
         yield return new WaitForSeconds(delay);

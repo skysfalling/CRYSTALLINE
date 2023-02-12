@@ -9,6 +9,8 @@ public class XRHeadsetUI : MonoBehaviour
     public CustomXRHandMovement leftHandMovement;
     public CustomXRHandMovement rightHandMovement;
 
+    public float fpsCount;
+
     [Header("Console")]
     public Text console;
     public int console_length = 10;
@@ -20,15 +22,23 @@ public class XRHeadsetUI : MonoBehaviour
     Dictionary<string, int> int_log = new Dictionary<string, int>();
 
 
-    private void Start()
+    private IEnumerator Start()
     {
+        GUI.depth = 2;
+        while (true)
+        {
+            fpsCount = 1f / Time.unscaledDeltaTime;
+            yield return new WaitForSeconds(0.1f);
+        }
     }
+
     private void Update()
     {
         UpdateHeadsetUI();
 
-        DisplayInt("JumpCount", movementManager.jumpCount);
+        DisplayInt("FPS", Mathf.RoundToInt(fpsCount));
 
+        // DisplayInt("JumpCount", movementManager.jumpCount);
 
         DisplayBool("Grounded", movementManager.isGrounded);
 
@@ -52,6 +62,11 @@ public class XRHeadsetUI : MonoBehaviour
 
         // values ===================================
         values.text = ""; // reset
+    }
+
+    public void RestartScene()
+    {
+        movementManager.gameManager.RestartScene();
     }
 
     // =================== CONSOLE ===========================

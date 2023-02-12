@@ -52,7 +52,7 @@ public class DungeonGenerationManager : MonoBehaviour
 
     [Header("Tile Parameters")]
     public int individualTileSize = 50;
-    public int tileLengthCellCount = 10;
+    public int cellsPerTile = 10;
     public GameObject tileCellParentPrefab;
     public GameObject tilePrefab;
 
@@ -67,7 +67,7 @@ public class DungeonGenerationManager : MonoBehaviour
 
     [Header("Generation")]
     [Range(0,1)]
-    public float obstacleRandomness = 0.2f;
+    public float obstacleSpawnWeight = 0.2f;
 
     [Header("Walls")]
     public Material wallMaterial;
@@ -88,7 +88,7 @@ public class DungeonGenerationManager : MonoBehaviour
 
     [Header("Rooms")]
     [Range(0,1)]
-    public float roomSpawnChance = 0.5f;
+    public float roomSpawnWeight = 0.5f;
     public int roomCount = 0;
     public List<TileGenerationManager> roomStartTiles = new List<TileGenerationManager>();
 
@@ -259,7 +259,7 @@ public class DungeonGenerationManager : MonoBehaviour
             TileGenerationManager newTile = CreateNewTile(originTile.tileCoord + spawnDirection, parent, path); ;
 
             // << ROOM SPAWN CHANCE >>
-            if (Random.Range((float)0, (float)1) < roomSpawnChance)
+            if (Random.Range((float)0, (float)1) < roomSpawnWeight)
             {
                 newTile.roomTile = true;
                 roomStartTiles.Add(newTile);
@@ -481,7 +481,7 @@ public class DungeonGenerationManager : MonoBehaviour
         newTileGen.tilePosition = newTile.transform.position;
         newTileGen.tileCoord = tileCoord;
         newTileGen.fullTileSize = individualTileSize;
-        newTileGen.tileLengthCellCount = tileLengthCellCount;
+        newTileGen.cellsPerTile = cellsPerTile;
         newTileGen.cellPrefab = tileCellParentPrefab;
         newTileGen.dunGenManager = gameObject.GetComponent<DungeonGenerationManager>();
 
