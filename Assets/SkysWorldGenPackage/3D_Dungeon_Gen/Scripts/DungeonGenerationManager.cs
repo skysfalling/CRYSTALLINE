@@ -53,6 +53,7 @@ public class DungeonGenerationManager : MonoBehaviour
     [Header("Tile Parameters")]
     public int individualTileSize = 50;
     public int cellsPerTile = 10;
+    public int cellSize;
     public GameObject tileCellParentPrefab;
     public GameObject tilePrefab;
 
@@ -108,7 +109,10 @@ public class DungeonGenerationManager : MonoBehaviour
 
     private void Start()
     {
-        if (initOnSceneStart) { StartCoroutine(Generate(startTileCoord)); }
+        //if (initOnSceneStart) { StartCoroutine(Generate(startTileCoord)); }
+
+        // set individual cell size
+        cellSize = (individualTileSize / cellsPerTile);
     }
 
     private void Update()
@@ -139,7 +143,7 @@ public class DungeonGenerationManager : MonoBehaviour
     {
         ClearGeneration();
 
-        StartCoroutine(Generate(startTileCoord));
+        //StartCoroutine(Generate(startTileCoord));
     }
 
 
@@ -213,24 +217,24 @@ public class DungeonGenerationManager : MonoBehaviour
         //print("Start Discover Path");
 
         // << GET POSSIBLE DIRECTIONS FROM ORIGIN TILE >>
-        string debugOptions = originTile.tileCoord.ToString() + "MOVE OPTIONS: ";
+        string debugOptions = originTile.coord.ToString() + "MOVE OPTIONS: ";
 
         // if neighbor not present in that direction... add to possible directions
         List<Vector2> horzSpawnDirections = new List<Vector2>();
         if (originTile.tileNeighbors[0] == null 
-            && !TileOutOfBounds(originTile.tileCoord + Vector2.left)) 
+            && !TileOutOfBounds(originTile.coord + Vector2.left)) 
         { horzSpawnDirections.Add(Vector2.left); debugOptions += "left "; }
         if (originTile.tileNeighbors[1] == null 
-            && !TileOutOfBounds(originTile.tileCoord + Vector2.right))
+            && !TileOutOfBounds(originTile.coord + Vector2.right))
         { horzSpawnDirections.Add(Vector2.right); debugOptions += "right "; }
 
         // if neighbor not present in that direction... add to possible directions
         List<Vector2> vertSpawnDirections = new List<Vector2>();
         if (originTile.tileNeighbors[2] == null 
-            && !TileOutOfBounds(originTile.tileCoord + Vector2.up)) 
+            && !TileOutOfBounds(originTile.coord + Vector2.up)) 
         { vertSpawnDirections.Add(Vector2.up); debugOptions += "up "; }
         if (originTile.tileNeighbors[3] == null
-            && !TileOutOfBounds(originTile.tileCoord + Vector2.down)) 
+            && !TileOutOfBounds(originTile.coord + Vector2.down)) 
         { vertSpawnDirections.Add(Vector2.down); debugOptions += "down "; }
 
         //print(debugOptions); //print move options
@@ -256,7 +260,7 @@ public class DungeonGenerationManager : MonoBehaviour
         // ** IF VALID SPAWN DIRECTION **
         if (spawnDirection != Vector2.zero)
         {
-            TileGenerationManager newTile = CreateNewTile(originTile.tileCoord + spawnDirection, parent, path); ;
+            TileGenerationManager newTile = CreateNewTile(originTile.coord + spawnDirection, parent, path); ;
 
             // << ROOM SPAWN CHANCE >>
             if (Random.Range((float)0, (float)1) < roomSpawnWeight)
@@ -321,7 +325,7 @@ public class DungeonGenerationManager : MonoBehaviour
                 newNode.inBranch = true; // set in branch
                 newNode.prevPathTile = tile; // set prev path tile
                 tile.branchNode = newNode; // set branch node of tile
-                newNode.name = "branch node " + branchNodes.Count + ": " + newNode.tileCoord.ToString();
+                newNode.name = "branch node " + branchNodes.Count + ": " + newNode.coord.ToString();
                 newNode.tileHeightLevel = tile.tileHeightLevel; // set to parent height level
 
                 branchNodes.Add(newNode);
@@ -370,12 +374,12 @@ public class DungeonGenerationManager : MonoBehaviour
         // << DECIDE WHICH DIRECTION TO START ROOM>>
         // ** validate neighbors
         List<Vector2> horzRoomStartNeighbors = new List<Vector2>();
-        if (!TileOutOfBounds(roomStart.tileCoord + Vector2.right)) { horzRoomStartNeighbors.Add(Vector2.right); }
-        if (!TileOutOfBounds(roomStart.tileCoord + Vector2.left)) { horzRoomStartNeighbors.Add(Vector2.left); }
+        if (!TileOutOfBounds(roomStart.coord + Vector2.right)) { horzRoomStartNeighbors.Add(Vector2.right); }
+        if (!TileOutOfBounds(roomStart.coord + Vector2.left)) { horzRoomStartNeighbors.Add(Vector2.left); }
 
         List<Vector2> vertRoomStartNeighbors = new List<Vector2>();
-        if (!TileOutOfBounds(roomStart.tileCoord + Vector2.up)) { vertRoomStartNeighbors.Add(Vector2.up); }
-        if (!TileOutOfBounds(roomStart.tileCoord + Vector2.down)) { vertRoomStartNeighbors.Add(Vector2.down); }
+        if (!TileOutOfBounds(roomStart.coord + Vector2.up)) { vertRoomStartNeighbors.Add(Vector2.up); }
+        if (!TileOutOfBounds(roomStart.coord + Vector2.down)) { vertRoomStartNeighbors.Add(Vector2.down); }
 
         // ** choose random room direction from choices
         Vector2 horzRoomDirection = new Vector2(-2, -2); // null value
@@ -391,7 +395,7 @@ public class DungeonGenerationManager : MonoBehaviour
         }
 
         // << DECIDE ROOM TYPE >>
-        CreateRoomType(horzRoomDirection, vertRoomDirection, roomStart.tileCoord, roomParent);
+        CreateRoomType(horzRoomDirection, vertRoomDirection, roomStart.coord, roomParent);
 
     }
 
@@ -479,7 +483,7 @@ public class DungeonGenerationManager : MonoBehaviour
         // create tile gen script
         TileGenerationManager newTileGen = newTile.GetComponent<TileGenerationManager>();
         newTileGen.tilePosition = newTile.transform.position;
-        newTileGen.tileCoord = tileCoord;
+        newTileGen.coord = tileCoord;
         newTileGen.fullTileSize = individualTileSize;
         newTileGen.cellsPerTile = cellsPerTile;
         newTileGen.cellPrefab = tileCellParentPrefab;
@@ -516,7 +520,7 @@ public class DungeonGenerationManager : MonoBehaviour
     {
         foreach (TileGenerationManager tile in allTiles)
         {
-            if (tile.tileCoord == tileCoord) { return tile; }
+            if (tile.coord == tileCoord) { return tile; }
         }
 
         return null;
@@ -525,7 +529,7 @@ public class DungeonGenerationManager : MonoBehaviour
     // set neighbors of a tile
     public void SetTileNeighbors(TileGenerationManager tile)
     {
-        Vector2 tilePoint = tile.tileCoord;
+        Vector2 tilePoint = tile.coord;
 
         // reset neighbors
         tile.tileNeighbors.Clear();
@@ -534,59 +538,39 @@ public class DungeonGenerationManager : MonoBehaviour
         tile.tileNeighbors.Add(null);
         tile.tileNeighbors.Add(null);
 
-
-        // ** create list of all possible neighbor directions
-        List<Vector2> neighborPoints = new List<Vector2>();
-        neighborPoints.Add(tilePoint + Vector2.left); //0
-        neighborPoints.Add(tilePoint + Vector2.right); //1
-        neighborPoints.Add(tilePoint + Vector2.up); //2
-        neighborPoints.Add(tilePoint + Vector2.down); //3
-
-        // for each direction
-        foreach (Vector2 dir in neighborPoints)
+        // check if dir is in allTiles
+        foreach (TileGenerationManager checkTile in allTiles)
         {
-            // check if dir is in allTiles
-            foreach (TileGenerationManager t in allTiles)
+
+            // << LEFT NEIGHBOR >>
+            if (checkTile.coord == tile.coord + Vector2.left)
             {
-                // if tile point == direction ...
-                if (t.tileCoord == dir)
-                {
-
-                    // << LEFT NEIGHBOR >>
-                    if (t.tileCoord == neighborPoints[0])
-                    {
-                        tile.tileNeighbors[0] = t; // this tile's left neighbor is found tile "t"
-                        t.tileNeighbors[1] = tile; // found tile t's right neighbor is then this tile
-                    }
-
-                    // << RIGHT NEIGHBOR >>
-                    else if (t.tileCoord == neighborPoints[1])
-                    {
-                        tile.tileNeighbors[1] = t;
-                        t.tileNeighbors[0] = tile;
-                    }
-
-                    // << TOP NEIGHBOR >>
-                    else if (t.tileCoord == neighborPoints[2])
-                    {
-                        tile.tileNeighbors[2] = t;
-                        t.tileNeighbors[3] = tile;
-                    }
-
-                    // << BOTTOM NEIGHBOR >>
-                    else if (t.tileCoord == neighborPoints[3])
-                    {
-                        tile.tileNeighbors[3] = t;
-                        t.tileNeighbors[2] = tile;
-                    }
-
-                    continue; // continue in 'for each direction' loop
-                }
+                tile.tileNeighbors[0] = checkTile; // this tile's left neighbor is found tile "t"
+                checkTile.tileNeighbors[1] = tile; // found tile t's right neighbor is then this tile
             }
+
+            // << RIGHT NEIGHBOR >>
+            else if (checkTile.coord == tile.coord + Vector2.right)
+            {
+                tile.tileNeighbors[1] = checkTile;
+                checkTile.tileNeighbors[0] = tile;
+            }
+
+            // << TOP NEIGHBOR >>
+            else if (checkTile.coord == tile.coord + Vector2.up)
+            {
+                tile.tileNeighbors[2] = checkTile;
+                checkTile.tileNeighbors[3] = tile;
+            }
+
+            // << BOTTOM NEIGHBOR >>
+            else if (checkTile.coord == tile.coord + Vector2.down)
+            {
+                tile.tileNeighbors[3] = checkTile;
+                checkTile.tileNeighbors[2] = tile;
+            }
+
         }
-
-        
-
     }
 
     // check if tile is out of bounds

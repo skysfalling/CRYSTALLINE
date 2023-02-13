@@ -449,6 +449,14 @@ PrefabInstance:
       value: -57.91623
       objectReference: {fileID: 0}
     - target: {fileID: 663592145764162602, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
+      propertyPath: minWallHeight
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 663592145764162602, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
+      propertyPath: initOnSceneStart
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 663592145764162602, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: generationBoundaries.x
       value: 10
       objectReference: {fileID: 0}
@@ -456,6 +464,10 @@ PrefabInstance:
       propertyPath: playerHead
       value: 
       objectReference: {fileID: 1796117752}
+    - target: {fileID: 787254814776333678, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5368966405226815757, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: m_Name
       value: GameManager
@@ -468,6 +480,10 @@ PrefabInstance:
       propertyPath: test_area
       value: 
       objectReference: {fileID: 533161060}
+    - target: {fileID: 5368966405226815758, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
+      propertyPath: initGameStart
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5368966405226815759, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: m_RootOrder
       value: 1
@@ -511,6 +527,10 @@ PrefabInstance:
     - target: {fileID: 5368966405226815759, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9203589319559507378, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
+      propertyPath: spawnCeilings
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}

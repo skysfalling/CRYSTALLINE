@@ -2,14 +2,19 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+//                      NONE () : Has not been set.
 //                      INACTIVE (-3) : Nothing can be spawned here.
 //                      CHECKED (-2) : Checked cell in A* Pathfinding.
-//                      EMPTY (-1) : Empty cell, spawn friendly.
+//                      EMPTY_FLOOR (-1) : Empty cell, all spawn friendly.
 //                      WALL (0) : Wall is spawned here.
 //                      EXIT (1) : Reserved for exit spawns, nothing else can be spawned here.
 //                      PATHWAY (2) : Reserved for pathway spawns, nothing else can be spawned here.
+//                      SIDE (3) : Reserved for side of wall spawns, nothing else can be spawned here.
+//                      CEILING (4) : Reserved for under ceiling spawns, nothing else can be spawned here.
+//                      AIR (5) : Reserved for midair spawns, nothing else can be spawned here.
 
-public enum CELL_TYPE { INACTIVE, CHECKED, EMPTY , WALL, EXIT, PATHWAY }
+
+public enum CELL_TYPE { NONE, INACTIVE, CHECKED, EMPTY_FLOOR, WALL, EXIT, PATHWAY, SIDE, CEILING, AIR}
 
 public class Cell : MonoBehaviour
 {
@@ -21,18 +26,23 @@ public class Cell : MonoBehaviour
     [Space(10)]
     public GameObject debugWall;
     public GameObject debugCube;
+    
+    [Space(10)]
+    public Material debug_noneMat;
+    public Material debug_inactiveMat;
+    public Material debug_emptyMat;
+    public Material debug_wallMat;
     public Material debug_exitMat;
     public Material debug_pathMat;
-    public Material debug_emptyMat;
-    public Material debug_obstacleMat;
-    public Material debug_inactiveCellMat;
+    public Material debug_sideMat;
+    public Material debug_ceilingMat;
+    public Material debug_airMat;
 
     [Space(10)]
-    public Vector2 coord;
-    public CELL_TYPE cellType = CELL_TYPE.EMPTY;
+    public Vector3 coord;
+    public CELL_TYPE cellType = CELL_TYPE.NONE;
     public int cellSize;
     public GameObject cellModel;
-    [Range(0.1f, 1f)]
     public float modelScale = 0.4f;
 
     [Header("============== Model Types ================")]
@@ -87,7 +97,7 @@ public class Cell : MonoBehaviour
         }
 
         // if not empty or a wall...
-        if (cellType != CELL_TYPE.EMPTY)
+        if (cellType != CELL_TYPE.NONE && cellType != CELL_TYPE.WALL)
         {
             // set active
             debugCube.SetActive(true);
@@ -95,20 +105,32 @@ public class Cell : MonoBehaviour
 
             switch (cellType)
             {
-                case CELL_TYPE.INACTIVE:
-                    meshR.material = debug_inactiveCellMat;
+                case CELL_TYPE.NONE:
+                    meshR.material = debug_noneMat;
                     break;
-                case CELL_TYPE.EMPTY:
+                case CELL_TYPE.INACTIVE:
+                    meshR.material = debug_inactiveMat;
+                    break;
+                case CELL_TYPE.EMPTY_FLOOR:
                     meshR.material = debug_emptyMat;
                     break;
                 case CELL_TYPE.WALL:
-                    meshR.material = debug_obstacleMat;
+                    meshR.material = debug_wallMat;
                     break;
                 case CELL_TYPE.EXIT:
                     meshR.material = debug_exitMat;
                     break;
                 case CELL_TYPE.PATHWAY:
                     meshR.material = debug_pathMat;
+                    break;
+                case CELL_TYPE.SIDE:
+                    meshR.material = debug_sideMat;
+                    break;
+                case CELL_TYPE.CEILING:
+                    meshR.material = debug_ceilingMat;
+                    break;
+                case CELL_TYPE.AIR:
+                    meshR.material = debug_airMat;
                     break;
             }
         }
@@ -140,16 +162,9 @@ public class Cell : MonoBehaviour
             return;
         }
 
-        /*
-        // change "checked tile" to empty tile
-        if (cellType == CELL_TYPE.CHECKED) { cellType = CELL_TYPE.EMPTY; }
-        */
 
         // change "checked tile" to pathway tile fuckit
         if (cellType == CELL_TYPE.CHECKED) { cellType = CELL_TYPE.PATHWAY; }
-
-        // change exit cells to proper cell type
-        foreach (Cell cell in tileGenManager.exitCells) { cell.cellType = CELL_TYPE.EXIT; }
 
         // create model and place as child of parent
         switch (cellType)
@@ -158,7 +173,7 @@ public class Cell : MonoBehaviour
             case CELL_TYPE.INACTIVE:
                 break;
             // empty cell
-            case CELL_TYPE.EMPTY:
+            case CELL_TYPE.EMPTY_FLOOR:
 
                 // randomly decide to spawn obj 
                 if (Random.Range((float)0, (float)1) < env.emptySpaceSpawnWeight)
@@ -167,7 +182,7 @@ public class Cell : MonoBehaviour
                     GameObject randomEmptyCellObj = env.emptySpaceObjs[Random.Range(0, env.emptySpaceObjs.Count)];
 
                     cellModel = Instantiate(randomEmptyCellObj, randomEmptyCellObj.transform.localPosition + transform.position, Quaternion.identity);
-                    cellModel.transform.localScale = Vector3.one * cellSize * modelScale;
+                    cellModel.transform.localScale *= cellSize * modelScale;
                     cellModel.transform.parent = this.transform;
                 }
 
@@ -176,7 +191,7 @@ public class Cell : MonoBehaviour
                 {
                     // choose random model from list
                     GameObject npc_obj = npcManager.SpawnNPC(npcManager.prefabs[Random.Range(0, npcManager.prefabs.Count)], GetComponent<Cell>());
-                    npc_obj.transform.localScale = Vector3.one * cellSize * modelScale;
+                    cellModel.transform.localScale *= cellSize * modelScale;
                     npc_obj.transform.parent = this.transform;
 
                 }
@@ -216,7 +231,7 @@ public class Cell : MonoBehaviour
                     GameObject randomPathObj = env.pathObjs[Random.Range(0, env.pathObjs.Count)];
 
                     cellModel = Instantiate(randomPathObj, randomPathObj.transform.localPosition + transform.position, Quaternion.identity);
-                    cellModel.transform.localScale = new Vector3(cellSize * modelScale, cellSize * modelScale, cellSize * modelScale);
+                    cellModel.transform.localScale *= cellSize * modelScale;
                     cellModel.transform.parent = this.transform;
 
                 }
@@ -245,10 +260,20 @@ public class Cell : MonoBehaviour
     public void SetCellNeighbors()
     {
         cellNeighbors.Clear();
-        cellNeighbors.Add(tileGenManager.GetCell(coord + Vector2.down)); // left neighbor
-        cellNeighbors.Add(tileGenManager.GetCell(coord + Vector2.up)); // right neighbor
-        cellNeighbors.Add(tileGenManager.GetCell(coord + Vector2.right)); // top neighbor
-        cellNeighbors.Add(tileGenManager.GetCell(coord + Vector2.left)); // down neighbor
+
+        cellNeighbors.Add(GetCellNeighbor(Vector3.right));
+        cellNeighbors.Add(GetCellNeighbor(Vector3.left));
+        cellNeighbors.Add(GetCellNeighbor(Vector3.up));
+        cellNeighbors.Add(GetCellNeighbor(Vector3.down));
+        cellNeighbors.Add(GetCellNeighbor(Vector3.forward));
+        cellNeighbors.Add(GetCellNeighbor(Vector3.back));
+
+
+    }
+
+    public Cell GetCellNeighbor(Vector3 direction)
+    {
+        return tileGenManager.GetCell(coord + direction);
     }
 
     // ================================================= WALL MODELS ============================================================
@@ -437,7 +462,9 @@ public class Cell : MonoBehaviour
 
         foreach (Cell cell in cellNeighbors)
         {
-            if (cell.cellType == CELL_TYPE.EMPTY || cell.cellType == CELL_TYPE.WALL)
+            if (cell == null) { continue; }
+
+            if (cell.cellType == CELL_TYPE.EMPTY_FLOOR)
             {
                 emptyCellsCount++;
             }
@@ -457,7 +484,7 @@ public class Cell : MonoBehaviour
             GameObject ceilingBlock = GameObject.CreatePrimitive(PrimitiveType.Cube);
             transform.parent = transform;
 
-            ceilingBlock.transform.position = transform.position + new Vector3(0, (tileGenManager.wallHeight * cellSize) + (cellSize / 2) - cellSize, 0); //height of cell, plus offset
+            ceilingBlock.transform.position = transform.position + new Vector3(0, (tileGenManager.wallHeight * cellSize) - (cellSize), 0); //height of cell, plus offset
             ceilingBlock.transform.localScale = new Vector3(cellSize, cellSize, cellSize);
 
             // add to sorce mesh filters to combine later

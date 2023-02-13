@@ -4,7 +4,8 @@ using UnityEngine;
 
 public class WorldGenManager : MonoBehaviour
 {
-    DungeonGenerationManager dunGenManager;
+    [HideInInspector]
+    public DungeonGenerationManager dunGenManager;
     Environment_Manager envManager;
     NPC_Manager npcManager;
 
@@ -24,7 +25,7 @@ public class WorldGenManager : MonoBehaviour
 
     public bool spawnCeilings = true;
 
-    public void Start()
+    public void Awake()
     {
         dunGenManager = GetComponentInChildren<DungeonGenerationManager>();
         envManager = GetComponentInChildren<Environment_Manager>();
@@ -33,6 +34,8 @@ public class WorldGenManager : MonoBehaviour
 
     private void Update()
     {
+
+        if (dunGenManager == null) { GetComponentInChildren<DungeonGenerationManager>(); }
 
         // get start tile
         if (startTile == null && dunGenManager.dungeonStartTile != null)
@@ -47,15 +50,20 @@ public class WorldGenManager : MonoBehaviour
 
         Debug.Log("DUNGEON GENERATION OVERRIDE ==> WORLD GENERATION MANAGER");
 
-        dunGenManager.individualTileSize = individualTileSize;
-        dunGenManager.obstacleSpawnWeight = obstacleSpawnWeight;
-        dunGenManager.roomSpawnWeight = roomSpawnWeight;
+        if (dunGenManager == null) { Debug.Log("DUN GEN MANAGER COULD NOT BE FOUND"); }
+        else
+        {
+            dunGenManager.individualTileSize = individualTileSize;
+            dunGenManager.obstacleSpawnWeight = obstacleSpawnWeight;
+            dunGenManager.roomSpawnWeight = roomSpawnWeight;
 
-        envManager.spawnCeilings = spawnCeilings;
+            envManager.spawnCeilings = spawnCeilings;
 
-        npcManager.spawnWeight = npcSpawnWeight;
+            npcManager.spawnWeight = npcSpawnWeight;
 
+            StartCoroutine(dunGenManager.Generate(Vector3.zero));
+        }
+        
 
-        StartCoroutine(dunGenManager.Generate(Vector3.zero));
     }
 }

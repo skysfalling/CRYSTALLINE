@@ -144,7 +144,7 @@ public class RandomPathFinder : MonoBehaviour
 
 
             // if adjacent cell not in visited cells, add AND check validity of cell (is it empty?)
-            if (cell.cellType != 0)
+            if (cell.cellType != CELL_TYPE.WALL)
             {
                 // if cell isn't already visited
                 if (!visitedCells.Contains(cell))
@@ -252,24 +252,24 @@ public class RandomPathFinder : MonoBehaviour
         List<Cell> temp = new List<Cell>();
 
         int row = (int)n.coord.x;
-        int col = (int)n.coord.y;
+        int col = (int)n.coord.z;
 
 
         if (row + 1 <= tileGenManager.cellCoordMax)
         {
-            temp.Add(tileGenManager.GetCell(new Vector2(row + 1, col)));
+            temp.Add(tileGenManager.GetCell(new Vector3(row + 1, 0, col)));
         }
         if (row - 1 >= 0)
         {
-            temp.Add(tileGenManager.GetCell(new Vector2(row - 1, col)));
+            temp.Add(tileGenManager.GetCell(new Vector3(row - 1, 0, col)));
         }
         if (col - 1 >= 0)
         {
-            temp.Add(tileGenManager.GetCell(new Vector2(row, col - 1)));
+            temp.Add(tileGenManager.GetCell(new Vector3(row, 0, col - 1)));
         }
         if (col + 1 <= tileGenManager.cellCoordMax)
         {
-            temp.Add(tileGenManager.GetCell(new Vector2(row, col + 1)));
+            temp.Add(tileGenManager.GetCell(new Vector3(row, 0, col + 1)));
         }
 
         return temp;

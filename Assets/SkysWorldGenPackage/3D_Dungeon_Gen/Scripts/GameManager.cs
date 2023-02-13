@@ -25,6 +25,7 @@ public class GameManager : MonoBehaviour
     public int dungeonSceneBuildIndex; 
 
     // Start is called before the first frame update
+
     void Start()
     {
         worldGen = GetComponentInChildren<WorldGenManager>();
@@ -45,19 +46,25 @@ public class GameManager : MonoBehaviour
 
         // VR SETUP
         if (vr_rig != null)
+        {
             vr_rig.ResetPhysicsHandPosition();
+
+        }
 
 
         if (initGameStart)
+        {
             StartCoroutine(GameStart());
+        }
 
     }
 
-    public void StartGame() { StartCoroutine(GameStart()); }
-
     IEnumerator GameStart()
     {
+        yield return new WaitUntil(() => worldGen.dunGenManager != null);
+
         worldGen.GenerateWorld();
+
         yield return new WaitUntil(() => worldGen.startTile != null);
         yield return new WaitUntil(() => worldGen.startTile.playerSpawn != null);
 

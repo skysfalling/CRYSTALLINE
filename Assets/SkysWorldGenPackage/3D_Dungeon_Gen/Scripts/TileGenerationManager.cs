@@ -13,9 +13,11 @@ public class TileGenerationManager : MonoBehaviour
     public Vector3 tilePosition;
     public int fullTileSize = 50;
     public int cellsPerTile = 10;
+    public int cellSize; // fullTileSize / tileLengthCellCount
+
 
     [Header("Tile Data =============")]
-    public Vector2 tileCoord = new Vector2();
+    public Vector2 coord = new Vector2();
     public List<TileGenerationManager> tileNeighbors = new List<TileGenerationManager>(4); // tile neighbors (left, right, top, bottom)
     List<TileGenerationManager> pathNeighbors = new List<TileGenerationManager>();
     [Space(10)]
@@ -48,11 +50,9 @@ public class TileGenerationManager : MonoBehaviour
     [Header("Cell Data =============")]
     public GameObject cellPrefab;
     public Transform cellTransformParent;
-    public int cellSize; // fullTileSize / tileLengthCellCount
     public int cellCoordMax;
-    [HideInInspector]
     public List<Cell> allCells = new List<Cell>();
-    public List<Cell> emptyCells = new List<Cell>();
+    public List<Cell> emptyFloorCells = new List<Cell>();
 
     [Header("Pathfinding")]
     public RandomPathFinder pathFinderScript;
@@ -77,6 +77,7 @@ public class TileGenerationManager : MonoBehaviour
     public int wallHeight;
 
     [Header("Tile Edges")]
+    public List<Cell> cornerCells = new List<Cell>();
     public List<Cell> leftEdgeCells = new List<Cell>();
     public List<Cell> rightEdgeCells = new List<Cell>();
     public List<Cell> topEdgeCells = new List<Cell>();
@@ -168,7 +169,7 @@ public class TileGenerationManager : MonoBehaviour
         wallHeight = (dunGenManager.cur_tallestTileHeight + dunGenManager.minWallHeight) - tileHeightLevel; // offset so that all walls meet at the same height
 
         // set center cell of tile
-        centerCell = GetCell(new Vector2(cellCoordMax / 2, cellCoordMax / 2));
+        centerCell = GetCell(new Vector3(cellCoordMax / 2, 0, cellCoordMax / 2));
 
         // << CREATE BASE GROUND >>
         // tile ground is scaled for inner part of tile, edge grounds are spawned individually
@@ -193,23 +194,17 @@ public class TileGenerationManager : MonoBehaviour
             GameObject tileCeilingPrefab = dunGenManager.env_manager.ceilingPrefabs[Random.Range(0, dunGenManager.env_manager.ceilingPrefabs.Count)];
             tileCeiling = Instantiate(tileCeilingPrefab, transform);
 
+            tileCeiling.transform.position = tilePosition + new Vector3(0, (wallHeight * cellSize) + (cellSize * 0.25f), 0); //height of cell, plus offset
+
+
             if (roomTile)
             {
-                // position ceiling on top of generation
-                tileCeiling.transform.position = tilePosition + new Vector3(0, (wallHeight * cellSize) + (cellSize / 2), 0); //height of cell, plus offset
                 tileCeiling.transform.localScale = new Vector3(fullTileSize, cellSize, fullTileSize);
             }
             else
             {
-                // position ceiling at the height of the wall so that it's surrounded by walls instead of on top 
-                //tileCeiling.transform.position = tilePosition + new Vector3(0, (wallHeight * cellSize) + (cellSize / 2) - cellSize, 0); //height of cell, plus offset
-                
-                
-                tileCeiling.transform.position = tilePosition + new Vector3(0, (wallHeight * cellSize) + (cellSize / 2), 0); //height of cell, plus offset
-                tileCeiling.transform.localScale = new Vector3(fullTileSize - (2 * cellSize), cellSize, fullTileSize - (2 * cellSize));
+                tileCeiling.transform.localScale = new Vector3(fullTileSize, cellSize, fullTileSize);
             }
-
-            tileCeiling.transform.position += new Vector3(0, -0.5f, 0); // trying to fix bug, dont want to mess up math so here we are
 
             tileCeiling.name = "TileCeiling";
             tileCeiling.transform.parent = transform;
@@ -241,8 +236,6 @@ public class TileGenerationManager : MonoBehaviour
             tileNeighbors.Add(null);
         }
 
-        CreateCellParents();
-
         /*
         if (debug)
         {
@@ -251,8 +244,10 @@ public class TileGenerationManager : MonoBehaviour
         else
         {
             StartCoroutine(Generate());
-        }*/
+        }
+        */
 
+        
         StartCoroutine(Generate());
 
     }
@@ -260,6 +255,9 @@ public class TileGenerationManager : MonoBehaviour
     // <<<< GENERATION >>>>
     public IEnumerator Generate()
     {
+
+        yield return new WaitUntil(() => CreateCellParents());
+
         // set cell neighbors
         foreach (Cell cell in allCells) { cell.SetCellNeighbors(); }
 
@@ -267,7 +265,7 @@ public class TileGenerationManager : MonoBehaviour
         DetermineEdges();
 
         // create entrance / exit pairs
-        ChooseExits();
+        DetermineExits();
 
         // find paths from exits
         StartCoroutine(FindPaths());
@@ -277,7 +275,7 @@ public class TileGenerationManager : MonoBehaviour
 
 
         // expand exit doorways without messing with pathfinding
-        ExpandExits();
+        ExpandAllExits();
 
         // turn on / off walls based on rooms
         SetRoomWalls();
@@ -285,15 +283,19 @@ public class TileGenerationManager : MonoBehaviour
         debugGenFinished = true;
         yield return new WaitUntil(() => dunGenManager.generationFinished);
 
+        // determine which cells are the sides of the grid
+        DetermineSideCells();
+
+        // determine which cells are ceiling cells
+        DetermineCeilingCells();
+
         // create walls
         CreateOptimizedWalls();
-
-
 
         // create random obstacles in empty cells
         CreateRandomObstacles(dunGenManager.obstacleSpawnWeight);
 
-
+        
         // spawn models for each cell
         SpawnAllCellModels();
 
@@ -302,16 +304,15 @@ public class TileGenerationManager : MonoBehaviour
 
         // set all spawn points
         SetSpawns();
-
-
-
-
+        
 
     }
 
     // <<<< SLOW VISUAL GENERATION >>>>
     public IEnumerator DebugGeneration(float delay, float pathfindingDelay)
     {
+        yield return new WaitUntil(() => CreateCellParents());
+
         // determine which cells are edges of the grid
         DetermineEdges();
         Debug.Log(">>>> found edges", this.gameObject);
@@ -319,7 +320,7 @@ public class TileGenerationManager : MonoBehaviour
         yield return new WaitForSeconds(delay);
 
         // create entrance / exit pairs
-        ChooseExits();
+        DetermineExits();
         Debug.Log(">>>> exit count: " + exitCells.Count, this.gameObject);
 
         yield return new WaitForSeconds(delay);
@@ -332,7 +333,7 @@ public class TileGenerationManager : MonoBehaviour
         if (exitCells.Count == 1)
         {
             // get cell in center of tile
-            Cell centerCell = GetCell(new Vector2(cellCoordMax / 2, cellCoordMax / 2));
+            Cell centerCell = GetCell(new Vector3(cellCoordMax / 2, 0, cellCoordMax / 2));
 
             // find path from center to exit
             pathACoroutine = pathFinderScript.DebugFindRandomPath(allCells, centerCell, exitCells[0], pathfindingDelay, true, false);
@@ -354,7 +355,7 @@ public class TileGenerationManager : MonoBehaviour
         // remove path from empty cells
         foreach (Cell cell in pathA)
         {
-            if (emptyCells.Contains(cell)) { emptyCells.Remove(cell); }
+            if (emptyFloorCells.Contains(cell)) { emptyFloorCells.Remove(cell); }
         }
 
         Debug.Log(">>>> found pathA", this.gameObject);
@@ -389,7 +390,7 @@ public class TileGenerationManager : MonoBehaviour
         // remove path from empty cells
         foreach (Cell cell in pathB)
         {
-            if (emptyCells.Contains(cell)) { emptyCells.Remove(cell); }
+            if (emptyFloorCells.Contains(cell)) { emptyFloorCells.Remove(cell); }
         }
 
         Debug.Log(">>>> found pathB", this.gameObject);
@@ -437,45 +438,46 @@ public class TileGenerationManager : MonoBehaviour
         rightEdgeCells.Clear();
         topEdgeCells.Clear();
         bottomEdgeCells.Clear();
-        emptyCells.Clear();
+        emptyFloorCells.Clear();
 
         exitCells.Clear();
     }
 
 
     // <<<< FIND CENTER POS OF EACH CELL AND CREATE PARENT >>>>
-    public void CreateCellParents()
+    public bool CreateCellParents()
     {
         // << FIND CENTERS OF CELLS >>
         Vector3 botLeftCellCenter = tilePosition + new Vector3((float)-fullTileSize / 2, 0, (float)-fullTileSize / 2) + new Vector3((float)cellSize / 2, 0, (float)cellSize / 2);
         //Debug.Log("Top Left Cell Center: " + topLeftCellCenter);
-        for (float y = 0; y < fullTileSize / cellSize; y += 1)
+        for (float x = 0; x < fullTileSize / cellSize; x += 1)
         {
-            for (float x = 0; x < fullTileSize / cellSize; x += 1)
+            for (float y = 0; y < wallHeight + 1; y += 1)
             {
-                // get position of cell center
-                Vector3 cellCenterPos = botLeftCellCenter + new Vector3(y * cellSize, 0, x * cellSize);
+                for (float z = 0; z < fullTileSize / cellSize; z += 1)
+                {
+                    // get position of cell center
+                    Vector3 cellCenterPos = botLeftCellCenter + new Vector3(x * cellSize, y * cellSize, z * cellSize);
 
-                // create cell , child of cell transform parent
-                GameObject cell = Instantiate(cellPrefab, cellCenterPos, Quaternion.identity);
-                cell.transform.parent = cellTransformParent.transform;
+                    // create cell , child of cell transform parent
+                    GameObject cell = Instantiate(cellPrefab, cellCenterPos, Quaternion.identity);
+                    cell.transform.parent = cellTransformParent.transform;
 
-                // get cellParent script
-                Cell cellParentScript = cell.GetComponent<Cell>();
-                allCells.Add(cellParentScript); // add to all cells
-                cellParentScript.coord = new Vector2(x, y); // set coord
-                cell.name = "CellParent" + cellParentScript.coord.ToString(); // name cell 
-                cellParentScript.tileGenManager = gameObject.GetComponent<TileGenerationManager>();
-                cellParentScript.dunGenManager = cellParentScript.tileGenManager.dunGenManager;
-
-
+                    // get cellParent script
+                    Cell cellParentScript = cell.GetComponent<Cell>();
+                    allCells.Add(cellParentScript); // add to all cells
+                    cellParentScript.coord = new Vector3(x, y, z); // set coord
+                    cell.name = "CellParent" + cellParentScript.coord.ToString(); // name cell 
+                    cellParentScript.tileGenManager = gameObject.GetComponent<TileGenerationManager>();
+                    cellParentScript.dunGenManager = cellParentScript.tileGenManager.dunGenManager;
+                }
             }
         }
 
         // set center cell of tile
-        centerCell = GetCell(new Vector2(cellCoordMax / 2, cellCoordMax / 2));
+        centerCell = GetCell(new Vector3(cellCoordMax / 2, 0, cellCoordMax / 2));
 
-
+        return true;
 
     }
 
@@ -483,156 +485,168 @@ public class TileGenerationManager : MonoBehaviour
     // <<<< DETERMINE WHICH CELLS ARE EDGES >>>>
     public void DetermineEdges()
     {
-
         foreach (Cell cell in allCells)
         {
-            bool isValidEdge = false;
-
             // if corner
-            if (cell.coord == Vector2.zero || cell.coord == new Vector2(0, cellCoordMax)
-                || cell.coord == new Vector2(cellCoordMax, 0) || cell.coord == new Vector2(cellCoordMax, cellCoordMax))
+            if (cell.coord == Vector3.zero || cell.coord == new Vector3(0, 0, cellCoordMax)
+                || cell.coord == new Vector3(cellCoordMax, 0, 0) || cell.coord == new Vector3(cellCoordMax, 0, cellCoordMax))
             {
-                // set to wall, give edge type but don't put in list
-                cell.cellType = CELL_TYPE.WALL;
                 cell.isCorner = true;
-
-                isValidEdge = true;
+                cell.cellType = CELL_TYPE.WALL;
             }
-
 
             // get left edge
-            if (cell.coord.y == 0)
-            {
-                cell.isLeftEdge = true;
-                cell.isRightEdge = false;
-
-                cell.cellType = CELL_TYPE.WALL;
-                if (!cell.isCorner) { leftEdgeCells.Add(cell); } // if not corner add to list
-
-                isValidEdge = true;
-
-            }
-
+            if (cell.coord.x == 0) { cell.isLeftEdge = true; cell.cellType = CELL_TYPE.WALL; }
             // get right edge
-            if (cell.coord.y == cellCoordMax)
-            {
-                cell.isLeftEdge = false;
-                cell.isRightEdge = true;
-
-                cell.cellType = CELL_TYPE.WALL;
-                if (!cell.isCorner) { rightEdgeCells.Add(cell); }
-
-                isValidEdge = true;
-
-            }
-
+            else if (cell.coord.x == cellCoordMax) { cell.isRightEdge = true; cell.cellType = CELL_TYPE.WALL; }
             // get top edge
-            if (cell.coord.x == cellCoordMax)
-            {
-                cell.isTopEdge = true;
-                cell.isBottomEdge = false;
-
-                cell.cellType = CELL_TYPE.WALL;
-                if (!cell.isCorner) { topEdgeCells.Add(cell); }
-
-                isValidEdge = true;
-
-            }
-
+            else if (cell.coord.z == cellCoordMax) { cell.isTopEdge = true; cell.cellType = CELL_TYPE.WALL; }
             // get bottom edge
-            if (cell.coord.x == 0)
+            else if (cell.coord.z == 0) { cell.isBottomEdge = true; cell.cellType = CELL_TYPE.WALL; }
+            // else empty cell
+            else if (cell.coord.y == 0)
             {
-                cell.isTopEdge = false;
-                cell.isBottomEdge = true;
-
-                cell.cellType = CELL_TYPE.WALL;
-                if (!cell.isCorner) { bottomEdgeCells.Add(cell); }
-
-                isValidEdge = true;
-
+                cell.cellType = CELL_TYPE.EMPTY_FLOOR;
+                emptyFloorCells.Add(cell);
+                continue;
             }
 
-            // else add to empty cells
-            if (!isValidEdge)
+            // now add non-corners and ground cells to edge lists
+            if (!cell.isCorner && cell.coord.y == 0)
             {
-                emptyCells.Add(cell);
+                if (cell.isLeftEdge) { leftEdgeCells.Add(cell); }
+                else if (cell.isRightEdge) { rightEdgeCells.Add(cell); }
+                else if (cell.isTopEdge) { topEdgeCells.Add(cell); }
+                else if (cell.isBottomEdge) { bottomEdgeCells.Add(cell); }
+            }
+            
+        }
+    }
+
+    // <<<< DETERMINE SIDE CELLS >>>>
+    public void DetermineSideCells()
+    {
+        foreach (Cell cell in leftEdgeCells)
+        {
+            if (cell.cellType == CELL_TYPE.WALL)
+            {
+                SetAllCellsAbove(GetCell(cell.coord + Vector3.right), CELL_TYPE.SIDE);
+            }
+        }
+
+        foreach (Cell cell in rightEdgeCells)
+        {
+            if (cell.cellType == CELL_TYPE.WALL)
+            {
+                SetAllCellsAbove(GetCell(cell.coord + Vector3.left), CELL_TYPE.SIDE);
+            }
+        }
+
+        foreach (Cell cell in topEdgeCells)
+        {
+            if (cell.cellType == CELL_TYPE.WALL)
+            {
+                SetAllCellsAbove(GetCell(cell.coord + Vector3.back), CELL_TYPE.SIDE);
+            }
+        }
+
+        foreach (Cell cell in bottomEdgeCells)
+        {
+            if (cell.cellType == CELL_TYPE.WALL)
+            {
+                SetAllCellsAbove(GetCell(cell.coord + Vector3.forward), CELL_TYPE.SIDE);
             }
         }
     }
 
+    // <<<< DETERMINE CEILING CELLS >>>>
+    public void DetermineCeilingCells()
+    {
+        foreach (Cell cell in allCells)
+        {
+            // horizontal placement // cant be in walls
+            if (cell.coord.x > 0 && cell.coord.x < cellCoordMax && cell.coord.z > 0 && cell.coord.z < cellCoordMax)
+            {
+                if (cell.coord.y == wallHeight) { cell.cellType = CELL_TYPE.CEILING; }
+            }
+        }
+    }
 
     // <<<< CHOOSE EXITS & ENTRANCES FROM EDGE CELLS >>>>
-    public void ChooseExits()
+    public void DetermineExits()
     {
-        // if left exit
-        if (needLeftExit)
-        {
-            // check if neighbor has chosen opposite exit already
-            if (tileNeighbors[0] != null && tileNeighbors[0].rightExitIndex != -1) { leftExitIndex = tileNeighbors[0].rightExitIndex; }
-            else
-            {
-                // randomly choose exit
-                leftExitIndex = Random.Range(0, leftEdgeCells.Count);
-            }
+        if (needLeftExit) { SetExit(Vector2.left); }
+        if (needRightExit) { SetExit(Vector2.right); }
+        if (needTopExit) { SetExit(Vector2.up); }
+        if (needBottomExit) { SetExit(Vector2.down); }
 
-            // set cell to exit
+    }
+
+    public void SetExit(Vector2 direction)
+    {
+        TileGenerationManager neighbor = GetTileNeighbor(direction);
+        int neighborPairExitIndex = -1;
+        int thisExitindex = -1;
+
+        // setup direction variables
+        if (direction == Vector2.left)
+        {
+            neighborPairExitIndex = neighbor.rightExitIndex;
+            thisExitindex = leftExitIndex;
+        }
+        else if (direction == Vector2.right)
+        {
+            neighborPairExitIndex = neighbor.leftExitIndex;
+            thisExitindex = rightExitIndex;
+        }
+        else if (direction == Vector2.up)
+        {
+            neighborPairExitIndex = neighbor.bottomExitIndex;
+            thisExitindex = topExitIndex;
+        }
+        else if (direction == Vector2.down)
+        {
+            neighborPairExitIndex = neighbor.topExitIndex;
+            thisExitindex = bottomExitIndex;
+        }
+        else { return; /* not a valid direction */ }
+
+
+        // check if neighbor has chosen opposite exit already
+        if (neighbor != null && neighborPairExitIndex != -1) { thisExitindex = neighborPairExitIndex; }
+        else
+        {
+            // randomly choose exit
+            thisExitindex = Random.Range(0, leftEdgeCells.Count);
+        }
+
+        // set cell to exit
+
+
+        // add exit cell to list
+        if (direction == Vector2.left)
+        {
+            leftExitIndex = thisExitindex;
             leftEdgeCells[leftExitIndex].cellType = CELL_TYPE.EXIT;
-            exitCells.Add(GetCell(new Vector2(leftExitIndex + 1, 0)));
-
+            exitCells.Add(GetCell(new Vector3(thisExitindex + 1, 0, 0)));
         }
-
-        // if right exit
-        if (needRightExit)
+        else if (direction == Vector2.right)
         {
-            // check if neighbor has chosen exit already
-            if (tileNeighbors[1] != null && tileNeighbors[1].leftExitIndex != -1) { rightExitIndex = tileNeighbors[1].leftExitIndex; }
-            else
-            {
-                // randomly choose exit
-                rightExitIndex = Random.Range(0, rightEdgeCells.Count);
-            }
-
-            // set cell to exit
+            rightExitIndex = thisExitindex;
             rightEdgeCells[rightExitIndex].cellType = CELL_TYPE.EXIT;
-            exitCells.Add(GetCell(new Vector2(rightExitIndex + 1, cellCoordMax)));
-
-
+            exitCells.Add(GetCell(new Vector3(thisExitindex + 1, 0, cellCoordMax)));
         }
-
-        // if top exit
-        if (needTopExit)
+        else if (direction == Vector2.up)
         {
-            // check if neighbor has chosen exit already
-            if (tileNeighbors[2] != null && tileNeighbors[2].bottomExitIndex != -1) { topExitIndex = tileNeighbors[2].bottomExitIndex; }
-            else
-            {
-                // randomly choose exit
-                topExitIndex = Random.Range(0, topEdgeCells.Count);
-            }
-
-            // set cell to exit
+            topExitIndex = thisExitindex;
             topEdgeCells[topExitIndex].cellType = CELL_TYPE.EXIT;
-            exitCells.Add(GetCell(new Vector2(cellCoordMax, topExitIndex + 1)));
-
-
+            exitCells.Add(GetCell(new Vector3(cellCoordMax, 0, thisExitindex + 1)));
         }
-
-        // if bottom exit
-        if (needBottomExit)
+        else if (direction == Vector2.down)
         {
-            // check if neighbor has chosen exit already
-            if (tileNeighbors[3] != null && tileNeighbors[3].topExitIndex != -1) { bottomExitIndex = tileNeighbors[3].topExitIndex; }
-            else
-            {
-                // randomly choose exit
-                bottomExitIndex = Random.Range(0, bottomEdgeCells.Count);
-            }
-
-            // set cell to exit
+            bottomExitIndex = thisExitindex;
             bottomEdgeCells[bottomExitIndex].cellType = CELL_TYPE.EXIT;
-            exitCells.Add(GetCell(new Vector2(0, bottomExitIndex + 1)));
-
-
+            exitCells.Add(GetCell(new Vector3(0, 0, thisExitindex + 1)));
         }
     }
 
@@ -665,7 +679,7 @@ public class TileGenerationManager : MonoBehaviour
         // remove path from empty cells
         foreach (Cell cell in pathA)
         {
-            if (emptyCells.Contains(cell)) { emptyCells.Remove(cell); }
+            if (emptyFloorCells.Contains(cell)) { emptyFloorCells.Remove(cell); }
         }
 
         yield return new WaitUntil(() => debugPathAFound);
@@ -686,7 +700,7 @@ public class TileGenerationManager : MonoBehaviour
             // remove path from empty cells
             foreach (Cell cell in pathB)
             {
-                if (emptyCells.Contains(cell)) { emptyCells.Remove(cell); }
+                if (emptyFloorCells.Contains(cell)) { emptyFloorCells.Remove(cell); }
             }
         }
         else { debugPathBFound = true; }
@@ -703,7 +717,7 @@ public class TileGenerationManager : MonoBehaviour
         List<Cell> noLongerEmptyCells = new List<Cell>();
 
         // randomly decide if empty cell should become obstacle
-        foreach (Cell cell in emptyCells)
+        foreach (Cell cell in emptyFloorCells)
         {
             // if cell is inactive, remove from empty cells
             if (cell.cellType == CELL_TYPE.INACTIVE)
@@ -713,7 +727,7 @@ public class TileGenerationManager : MonoBehaviour
 
             else if (Random.Range((float)0,(float)1) < percentage)
             {
-                cell.cellType = CELL_TYPE.WALL;
+                cell.cellType = CELL_TYPE.EMPTY_FLOOR;
                 noLongerEmptyCells.Add(cell);
             }
         }
@@ -721,153 +735,40 @@ public class TileGenerationManager : MonoBehaviour
         // remove each newly filled cell
         foreach (Cell cell in noLongerEmptyCells)
         {
-            emptyCells.Remove(cell);
+            emptyFloorCells.Remove(cell);
         }
     }
 
     // <<<< EXPAND EXITS TO PROPER SIZE >>>>
-    public void ExpandExits()
+    public void ExpandAllExits()
     {
 
         int exitSize = dunGenManager.maxExitSize / 2;
 
-        // for each side of exit
-        for (int i = 0; i <= exitSize; i++)
-        {
-            // << LEFT EXIT >>
-            if (needLeftExit) 
-            {
-                //inactive cell in front of init exit
-                GetCell(new Vector2(leftExitIndex + 1, 1)).cellType = CELL_TYPE.INACTIVE;
-
-                // if exit extension is valid... (to the left)
-                if (leftExitIndex - i >= 0 && leftEdgeCells[leftExitIndex - i] != null)
-                {
-                    leftEdgeCells[leftExitIndex - i].cellType = CELL_TYPE.EXIT;
-
-                    // if cell neighbor is valid
-                    if (leftEdgeCells[leftExitIndex - i].cellNeighbors[1] != null)
-                    {
-                        leftEdgeCells[leftExitIndex - i].cellNeighbors[1].cellType = CELL_TYPE.INACTIVE; // set cell in front of exit to inactive (right neighbor)
-                    }
-                }
-
-                // if exit extension is valid... (to the right)
-                if (leftExitIndex + i < leftEdgeCells.Count && leftEdgeCells[leftExitIndex + i] != null)
-                {
-                    leftEdgeCells[leftExitIndex + i].cellType = CELL_TYPE.EXIT;
-
-                    // if cell neighbor is valid
-                    if (leftEdgeCells[leftExitIndex + i].cellNeighbors[1] != null)
-                    {
-                        leftEdgeCells[leftExitIndex + i].cellNeighbors[1].cellType = CELL_TYPE.INACTIVE; // set cell in front of exit to inactive (right neighbor)
-                    }
-                }
-            }
-            
-            // << RIGHT EXIT >>
-            if (needRightExit) 
-            {
-
-                //inactive cell in front of init exit
-                GetCell(new Vector2(rightExitIndex + 1, cellCoordMax - 1)).cellType = CELL_TYPE.INACTIVE;
-
-                // if exit extension is valid... (to the left)
-                if (rightExitIndex - i >= 0 && rightEdgeCells[rightExitIndex - i] != null)
-                {
-                    rightEdgeCells[rightExitIndex - i].cellType = CELL_TYPE.EXIT;
-                    
-                    // if cell neighbor is valid
-                    if (rightEdgeCells[rightExitIndex - i].cellNeighbors[0] != null)
-                    {
-                        rightEdgeCells[rightExitIndex - i].cellNeighbors[0].cellType = CELL_TYPE.INACTIVE; // set cell in front of exit to inactive (left neighbor)
-                    }
-
-                }
-
-                // if exit extension is valid... (to the right)
-                if (rightExitIndex + i < rightEdgeCells.Count && rightEdgeCells[rightExitIndex + i] != null)
-                {
-                    rightEdgeCells[rightExitIndex + i].cellType = CELL_TYPE.EXIT;
-
-                    // if cell neighbor is valid
-                    if (rightEdgeCells[rightExitIndex + i].cellNeighbors[0] != null)
-                    {
-                        rightEdgeCells[rightExitIndex + i].cellNeighbors[0].cellType = CELL_TYPE.INACTIVE; // set cell in front of exit to inactive (left neighbor)
-                    }
-
-                }
-
-            }
-            
-            // << TOP EXIT >>
-            if (needTopExit ) 
-            {
-                //inactive cell in front of init exit
-                GetCell(new Vector2(cellCoordMax - 1, topExitIndex + 1)).cellType = CELL_TYPE.INACTIVE;
-
-                // if exit extension is valid... (to the left)
-                if (topExitIndex - i >= 0 && topEdgeCells[topExitIndex - i] != null)
-                {
-                    topEdgeCells[topExitIndex - i].cellType = CELL_TYPE.EXIT;
-
-                    // if cell neighbor is valid
-                    if (topEdgeCells[topExitIndex - i].cellNeighbors[3] != null)
-                    {
-                        topEdgeCells[topExitIndex - i].cellNeighbors[3].cellType = CELL_TYPE.INACTIVE; // set cell in front of exit to inactive (bottom neighbor)
-                    }
-                }
-
-                // if exit extension is valid... (to the right)
-                if (topExitIndex + i < topEdgeCells.Count && topEdgeCells[topExitIndex + i] != null)
-                {
-                    topEdgeCells[topExitIndex + i].cellType = CELL_TYPE.EXIT;
-
-                    // if cell neighbor is valid
-                    if (topEdgeCells[topExitIndex + i].cellNeighbors[3] != null)
-                    {
-                        topEdgeCells[topExitIndex + i].cellNeighbors[3].cellType = CELL_TYPE.INACTIVE; // set cell in front of exit to inactive (bottom neighbor)
-                    }
-                }
-
-            }
-            
-            // << BOTTOM EXIT >>
-            if (needBottomExit) 
-            {
-                //inactive cell in front of init exit
-                GetCell(new Vector2(1, bottomExitIndex + 1)).cellType = CELL_TYPE.INACTIVE;
-
-                // if exit extension is valid... (to the left)
-                if (bottomExitIndex - i >= 0 && bottomEdgeCells[bottomExitIndex - i] != null)
-                {
-
-                    bottomEdgeCells[bottomExitIndex - i].cellType = CELL_TYPE.EXIT;
-
-                    // if cell neighbor is valid
-                    if (bottomEdgeCells[bottomExitIndex - i].cellNeighbors[2] != null)
-                    {
-                        bottomEdgeCells[bottomExitIndex - i].cellNeighbors[2].cellType = CELL_TYPE.INACTIVE; // set cell in front of exit to inactive (top neighbor)
-                    }
-
-                }
-
-                // if exit extension is valid... (to the right)
-                if (bottomExitIndex + i < bottomEdgeCells.Count && bottomEdgeCells[bottomExitIndex + i] != null)
-                {
-
-                    bottomEdgeCells[bottomExitIndex + i].cellType = CELL_TYPE.EXIT;
-
-                    // if cell neighbor is valid
-                    if (bottomEdgeCells[bottomExitIndex + i].cellNeighbors[2] != null)
-                    {
-                        bottomEdgeCells[bottomExitIndex + i].cellNeighbors[2].cellType = CELL_TYPE.INACTIVE; // set cell in front of exit to inactive (top neighbor)
-                    }
-
-                }
-            }
-            
+        if (needLeftExit) 
+        { 
+            ExpandExit(exitSize, leftExitIndex, leftEdgeCells, Vector3.right);
         }
+
+
+        if (needRightExit)
+        {
+            ExpandExit(exitSize, rightExitIndex, rightEdgeCells, Vector3.left);
+        }
+
+
+        if (needTopExit)
+        {
+            ExpandExit(exitSize, topExitIndex, topEdgeCells, Vector3.back);
+        }
+
+
+        if (needBottomExit)
+        {
+            ExpandExit(exitSize, bottomExitIndex, bottomEdgeCells, Vector3.forward);
+        }
+
+
 
         // set all other cells that are edges but not exits to cellType WALL
         List<List<Cell>> allEdgeCellLists = new List<List<Cell>>();
@@ -882,11 +783,45 @@ public class TileGenerationManager : MonoBehaviour
             foreach (Cell cell in list)
             {
                 if (cell.cellType != CELL_TYPE.EXIT) { cell.cellType = CELL_TYPE.WALL; }
+                else
+                {
+                    SetAllCellsAbove(cell, CELL_TYPE.AIR);
+                }
             }
         }
+    }
 
+    public void ExpandExit(int exitSize, int exitPointIndex , List<Cell> currEdgeCells , Vector3 oppositeDirection)
+    {
+        for (int i = 0; i < exitSize; i++)
+        {
+            //inactive cell in front of init exit
+            GetCell(currEdgeCells[exitPointIndex].coord + oppositeDirection).cellType = CELL_TYPE.INACTIVE;
 
+            // if exit extension is valid... (lower index)
+            if (exitPointIndex - i >= 0 && currEdgeCells[exitPointIndex - i] != null)
+            {
+                currEdgeCells[exitPointIndex - i].cellType = CELL_TYPE.EXIT;
 
+                // if cell neighbor is valid
+                if (currEdgeCells[exitPointIndex - i].GetCellNeighbor(oppositeDirection) != null)
+                {
+                    currEdgeCells[exitPointIndex - i].GetCellNeighbor(oppositeDirection).cellType = CELL_TYPE.INACTIVE; // set cell in front of exit to inactive
+                }
+            }
+
+            // if exit extension is valid... (higher index)
+            if (exitPointIndex + i < currEdgeCells.Count && currEdgeCells[exitPointIndex + i] != null)
+            {
+                currEdgeCells[exitPointIndex + i].cellType = CELL_TYPE.EXIT;
+
+                // if cell neighbor is valid
+                if (currEdgeCells[exitPointIndex + i].GetCellNeighbor(oppositeDirection) != null)
+                {
+                    currEdgeCells[exitPointIndex + i].GetCellNeighbor(oppositeDirection).cellType = CELL_TYPE.INACTIVE; // set cell in front of exit to inactive
+                }
+            }
+        }
     }
 
     // <<<< CREATE OPTIMIZED WALLS >>>>
@@ -914,6 +849,8 @@ public class TileGenerationManager : MonoBehaviour
                     if (leftEdgeCells[i].cellType == CELL_TYPE.EXIT && (highestExitIndex == -1 || i > highestExitIndex)) { highestExitIndex = i; }
                 }
 
+                //Debug.Log("lowest exit : " + lowestExitIndex, gameObject);
+                //Debug.Log("left edge cell count: " + leftEdgeCells.Count);
 
                 // **** LEFT WALL 1 ****
                 if (lowestExitIndex != 0)
@@ -923,9 +860,9 @@ public class TileGenerationManager : MonoBehaviour
                     leftwall_1.name = "Left Wall 1";
 
                     leftwall_1.transform.position = CellPositionMidpoint(leftEdgeCells[0], leftEdgeCells[lowestExitIndex]);
-                    leftwall_1.transform.position += new Vector3(0, (cellSize * wallHeight) / 2, -cellSize * 0.5f);
+                    leftwall_1.transform.position += new Vector3(0, (cellSize * wallHeight) * 0.5f, -cellSize * 0.5f);
 
-                    leftwall_1.transform.localScale = new Vector3(cellSize, cellSize * wallHeight, cellSize * (lowestExitIndex) + cellSize/2);
+                    leftwall_1.transform.localScale = new Vector3(cellSize, cellSize * wallHeight, cellSize * (lowestExitIndex));
 
                     walls.Add(leftwall_1);
                 }
@@ -939,9 +876,10 @@ public class TileGenerationManager : MonoBehaviour
                     leftwall_2.name = "Left Wall 2";
 
                     leftwall_2.transform.position = CellPositionMidpoint(leftEdgeCells[leftEdgeCells.Count - 1], leftEdgeCells[highestExitIndex]);
-                    leftwall_2.transform.position += new Vector3(0, (cellSize * wallHeight) / 2, cellSize * 0.5f);
+                    leftwall_2.transform.position += new Vector3(0, (cellSize * wallHeight) * 0.5f, cellSize * 0.5f);
 
-                    leftwall_2.transform.localScale = new Vector3(cellSize, cellSize * wallHeight, cellSize * ((leftEdgeCells.Count - 1) - highestExitIndex) - cellSize/2);
+                    leftwall_2.transform.localScale = new Vector3(cellSize, cellSize * wallHeight, cellSize * (leftEdgeCells.Count - highestExitIndex) - cellSize);
+
 
                     walls.Add(leftwall_2);
 
@@ -954,7 +892,7 @@ public class TileGenerationManager : MonoBehaviour
                 leftWall.name = "Left Wall";
 
                 leftWall.transform.position = leftEdgeCells[0].transform.position - (leftEdgeCells[0].transform.position - leftEdgeCells[leftEdgeCells.Count - 1].transform.position) / 2;
-                leftWall.transform.position += new Vector3(0, (cellSize * wallHeight) / 2, 0);
+                leftWall.transform.position += new Vector3(0, (cellSize * wallHeight) * 0.5f, 0);
 
 
                 leftWall.transform.localScale = new Vector3(cellSize, cellSize * wallHeight, cellSize * leftEdgeCells.Count); // + 2 to account for corners
@@ -990,7 +928,7 @@ public class TileGenerationManager : MonoBehaviour
                     rightwall_1.name = "Right Wall 1";
 
                     rightwall_1.transform.position = CellPositionMidpoint(rightEdgeCells[0], rightEdgeCells[lowestExitIndex]);
-                    rightwall_1.transform.position += new Vector3(0, (cellSize * wallHeight) / 2, -cellSize * 0.5f);
+                    rightwall_1.transform.position += new Vector3(0, (cellSize * wallHeight) * 0.5f, -cellSize * 0.5f);
 
 
                     rightwall_1.transform.localScale = new Vector3(cellSize, cellSize * wallHeight, cellSize * (lowestExitIndex));
@@ -1008,7 +946,7 @@ public class TileGenerationManager : MonoBehaviour
                     rightwall_2.name = "Right Wall 2";
 
                     rightwall_2.transform.position = CellPositionMidpoint(rightEdgeCells[rightEdgeCells.Count - 1], rightEdgeCells[highestExitIndex]);
-                    rightwall_2.transform.position += new Vector3(0, (cellSize * wallHeight) / 2, cellSize * 0.5f);
+                    rightwall_2.transform.position += new Vector3(0, (cellSize * wallHeight) * 0.5f, cellSize * 0.5f);
 
                     rightwall_2.transform.localScale = new Vector3(cellSize, cellSize * wallHeight, cellSize * (rightEdgeCells.Count - highestExitIndex) - cellSize);
 
@@ -1024,7 +962,7 @@ public class TileGenerationManager : MonoBehaviour
                 rightwall.name = "Right Wall";
 
                 rightwall.transform.position = rightEdgeCells[0].transform.position - (rightEdgeCells[0].transform.position - rightEdgeCells[rightEdgeCells.Count - 1].transform.position) / 2;
-                rightwall.transform.position += new Vector3(0, (cellSize * wallHeight) / 2, 0);
+                rightwall.transform.position += new Vector3(0, (cellSize * wallHeight) * 0.5f, 0);
 
 
                 rightwall.transform.localScale = new Vector3(cellSize, cellSize * wallHeight, cellSize * rightEdgeCells.Count); // + 2 to account for corners
@@ -1059,7 +997,7 @@ public class TileGenerationManager : MonoBehaviour
                     topwall_1.name = "Top Wall 1";
 
                     topwall_1.transform.position = CellPositionMidpoint(topEdgeCells[0], topEdgeCells[lowestExitIndex]);
-                    topwall_1.transform.position += new Vector3(-cellSize * 0.5f, (cellSize * wallHeight) / 2, 0);
+                    topwall_1.transform.position += new Vector3(-cellSize * 0.5f, (cellSize * wallHeight) * 0.5f, 0);
 
 
                     topwall_1.transform.localScale = new Vector3(cellSize * lowestExitIndex, cellSize * wallHeight, cellSize);
@@ -1076,7 +1014,7 @@ public class TileGenerationManager : MonoBehaviour
                     topwall_2.name = "Top Wall 2";
 
                     topwall_2.transform.position = CellPositionMidpoint(topEdgeCells[topEdgeCells.Count - 1], topEdgeCells[highestExitIndex]);
-                    topwall_2.transform.position += new Vector3(cellSize * 0.5f, (cellSize * wallHeight) / 2, 0);
+                    topwall_2.transform.position += new Vector3(cellSize * 0.5f, (cellSize * wallHeight) * 0.5f, 0);
 
                     topwall_2.transform.localScale = new Vector3(cellSize * ((topEdgeCells.Count - 1) - highestExitIndex), cellSize * wallHeight, cellSize);
 
@@ -1091,7 +1029,7 @@ public class TileGenerationManager : MonoBehaviour
                 topwall.name = "Top Wall";
 
                 topwall.transform.position = topEdgeCells[0].transform.position - (topEdgeCells[0].transform.position - topEdgeCells[topEdgeCells.Count - 1].transform.position) / 2;
-                topwall.transform.position += new Vector3(0, (cellSize * wallHeight) / 2, 0);
+                topwall.transform.position += new Vector3(0, (cellSize * wallHeight) * 0.5f, 0);
 
 
                 topwall.transform.localScale = new Vector3(cellSize * topEdgeCells.Count, cellSize * wallHeight, cellSize); // + 2 to account for corners
@@ -1127,7 +1065,7 @@ public class TileGenerationManager : MonoBehaviour
                     bottomwall_1.name = "Bottom Wall 1";
 
                     bottomwall_1.transform.position = CellPositionMidpoint(bottomEdgeCells[0], bottomEdgeCells[lowestExitIndex]);
-                    bottomwall_1.transform.position += new Vector3(-cellSize * 0.5f, (cellSize * wallHeight) / 2, 0);
+                    bottomwall_1.transform.position += new Vector3(-cellSize * 0.5f, (cellSize * wallHeight) * 0.5f, 0);
 
 
                     bottomwall_1.transform.localScale = new Vector3(cellSize * lowestExitIndex, cellSize * wallHeight, cellSize);
@@ -1145,7 +1083,7 @@ public class TileGenerationManager : MonoBehaviour
                     bottomwall_2.name = "Bottom Wall 2";
 
                     bottomwall_2.transform.position = CellPositionMidpoint(bottomEdgeCells[bottomEdgeCells.Count - 1], bottomEdgeCells[highestExitIndex]);
-                    bottomwall_2.transform.position += new Vector3(cellSize * 0.5f, (cellSize * wallHeight) / 2, 0);
+                    bottomwall_2.transform.position += new Vector3(cellSize * 0.5f, (cellSize * wallHeight) * 0.5f, 0);
 
                     bottomwall_2.transform.localScale = new Vector3(cellSize * ((bottomEdgeCells.Count - 1) - highestExitIndex), cellSize * wallHeight, cellSize);
 
@@ -1160,7 +1098,7 @@ public class TileGenerationManager : MonoBehaviour
                 bottomwall.name = "Bottom Wall";
 
                 bottomwall.transform.position = bottomEdgeCells[0].transform.position - (bottomEdgeCells[0].transform.position - bottomEdgeCells[bottomEdgeCells.Count - 1].transform.position) / 2;
-                bottomwall.transform.position += new Vector3(0, (cellSize * wallHeight) / 2, 0);
+                bottomwall.transform.position += new Vector3(0, (cellSize * wallHeight) * 0.5f, 0);
 
 
                 bottomwall.transform.localScale = new Vector3(cellSize * bottomEdgeCells.Count, cellSize * wallHeight, cellSize); // + 2 to account for corners
@@ -1177,7 +1115,7 @@ public class TileGenerationManager : MonoBehaviour
             topleftCorner.transform.parent = wallParent.transform;
             topleftCorner.name = "Top Left Corner";
 
-            topleftCorner.transform.position = leftEdgeCells[leftEdgeCells.Count - 1].transform.position + new Vector3(0, (cellSize * wallHeight) / 2, cellSize);
+            topleftCorner.transform.position = leftEdgeCells[leftEdgeCells.Count - 1].transform.position + new Vector3(0, (cellSize * wallHeight) * 0.5f, cellSize);
             topleftCorner.transform.localScale = new Vector3(cellSize, (cellSize * wallHeight), cellSize);
 
             walls.Add(topleftCorner);
@@ -1191,7 +1129,7 @@ public class TileGenerationManager : MonoBehaviour
             topRightCorner.transform.parent = wallParent.transform;
             topRightCorner.name = "Top Right Corner";
 
-            topRightCorner.transform.position = rightEdgeCells[rightEdgeCells.Count - 1].transform.position + new Vector3(0, (cellSize * wallHeight) / 2, cellSize);
+            topRightCorner.transform.position = rightEdgeCells[rightEdgeCells.Count - 1].transform.position + new Vector3(0, (cellSize * wallHeight) * 0.5f, cellSize);
             topRightCorner.transform.localScale = new Vector3(cellSize, (cellSize * wallHeight), cellSize);
 
             walls.Add(topRightCorner);
@@ -1204,7 +1142,7 @@ public class TileGenerationManager : MonoBehaviour
             botLeftCorner.transform.parent = wallParent.transform;
             botLeftCorner.name = "Bottom Left Corner";
 
-            botLeftCorner.transform.position = leftEdgeCells[0].transform.position + new Vector3(0, (cellSize * wallHeight) / 2, -cellSize);
+            botLeftCorner.transform.position = leftEdgeCells[0].transform.position + new Vector3(0, (cellSize * wallHeight) * 0.5f, -cellSize);
             botLeftCorner.transform.localScale = new Vector3(cellSize, (cellSize * wallHeight), cellSize);
             walls.Add(botLeftCorner);
 
@@ -1216,14 +1154,14 @@ public class TileGenerationManager : MonoBehaviour
             botRightCorner.transform.parent = wallParent.transform;
             botRightCorner.name = "Bottom Right Corner";
 
-            botRightCorner.transform.position = rightEdgeCells[0].transform.position + new Vector3(0, (cellSize * wallHeight) / 2, -cellSize);
+            botRightCorner.transform.position = rightEdgeCells[0].transform.position + new Vector3(0, (cellSize * wallHeight) * 0.5f, -cellSize);
             botRightCorner.transform.localScale = new Vector3(cellSize, (cellSize * wallHeight), cellSize);
             walls.Add(botRightCorner);
 
         }
 
         // << ADJUST WALL HEIGHT >>
-        wallParent.transform.position += new Vector3(0, -0.5f, 0);
+        wallParent.transform.position += new Vector3(0, -cellSize * 0.25f, 0);
 
         // << ADD WALLS TO GENERATED MESH >>
         foreach (GameObject wall in walls)
@@ -1290,8 +1228,9 @@ public class TileGenerationManager : MonoBehaviour
         generatedMeshParent.GetComponent<MeshFilter>().mesh = combinedMesh;
 
         // DONT TOUCH POSITION (combined meshes act weird)
-        //generatedMeshParent.transform.localPosition = new Vector3(tilePosition.x * -1, (-tilePosition.y * 2)+ 0.5f, tilePosition.z * -1); ;
-        generatedMeshParent.transform.localPosition = new Vector3(tilePosition.x * -1, 0, tilePosition.z * -1); ;
+        generatedMeshParent.transform.localPosition = (tilePosition * -1) + new Vector3(0, cellSize * 0.25f, 0);
+
+        // set shared mesh
         generatedMeshParent.GetComponent<MeshCollider>().sharedMesh = generatedMeshParent.GetComponent<MeshFilter>().mesh;
 
         // delete the temp objects
@@ -1343,7 +1282,7 @@ public class TileGenerationManager : MonoBehaviour
 
     //=========================================== HELPER FUNCTIONS =============================================
 
-    public Cell GetCell(Vector2 coord)
+    public Cell GetCell(Vector3 coord)
     {
         foreach (Cell cell in allCells)
         {
@@ -1358,12 +1297,23 @@ public class TileGenerationManager : MonoBehaviour
     {
         List<Vector2> emptyNeighbors = new List<Vector2>();
 
-        if (tileNeighbors[0] == null) { emptyNeighbors.Add(tileCoord + Vector2.left); }
-        if (tileNeighbors[1] == null) { emptyNeighbors.Add(tileCoord + Vector2.right); }
-        if (tileNeighbors[2] == null) { emptyNeighbors.Add(tileCoord + Vector2.up); }
-        if (tileNeighbors[3] == null) { emptyNeighbors.Add(tileCoord + Vector2.down); }
+        if (tileNeighbors[0] == null) { emptyNeighbors.Add(coord + Vector2.left); }
+        if (tileNeighbors[1] == null) { emptyNeighbors.Add(coord + Vector2.right); }
+        if (tileNeighbors[2] == null) { emptyNeighbors.Add(coord + Vector2.up); }
+        if (tileNeighbors[3] == null) { emptyNeighbors.Add(coord + Vector2.down); }
 
         return emptyNeighbors;
+
+    }
+
+    public TileGenerationManager GetTileNeighbor(Vector2 direction)
+    {
+        if (direction == Vector2.left) { return tileNeighbors[0]; }
+        if (direction == Vector2.right) { return tileNeighbors[1]; }
+        if (direction == Vector2.up) { return tileNeighbors[2]; }
+        if (direction == Vector2.down) { return tileNeighbors[3]; }
+
+        return null;
 
     }
 
@@ -1430,6 +1380,14 @@ public class TileGenerationManager : MonoBehaviour
 
     }
 
+    public void SetAllCellsAbove(Cell cell, CELL_TYPE cellType)
+    {
+        for (int i = 1; i < wallHeight; i++)
+        {
+            GetCell(cell.coord + (Vector3.up * i)).cellType = cellType;
+        }
+    }
+
     public void CreateExitCode()
     {
         // << CREATE EXIT CODE >>
@@ -1468,7 +1426,15 @@ public class TileGenerationManager : MonoBehaviour
 
     }
 
-
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = Color.green;
+        // draw all cells
+        foreach (Cell cell in allCells)
+        {
+            Gizmos.DrawWireSphere(cell.transform.position, 1);
+        }
+    }
 
 
 }
