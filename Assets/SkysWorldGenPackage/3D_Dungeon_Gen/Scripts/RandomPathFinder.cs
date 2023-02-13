@@ -155,9 +155,9 @@ public class RandomPathFinder : MonoBehaviour
                 cell.pathWeight = Vector3.Distance(cell.transform.position, end.transform.position);
 
                 // if cell is not already part of the path
-                if (cell.cellType != 2)
+                if (cell.cellType != CELL_TYPE.PATHWAY)
                 {
-                    cell.cellType = -2; // sets gizmos to green to visualize that this cell has been visited
+                    cell.cellType = CELL_TYPE.CHECKED; // sets gizmos to green to visualize that this cell has been visited
                 }
             }
             else
@@ -206,7 +206,7 @@ public class RandomPathFinder : MonoBehaviour
             path.Add(bestCell);
         }
 
-        bestCell.cellType = 2; // set to a part of the path
+        bestCell.cellType = CELL_TYPE.PATHWAY; // set to a part of the path
         pathHead = bestCell;
 
         return pathHead;

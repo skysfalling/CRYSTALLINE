@@ -15,7 +15,7 @@ public class NPC_Manager : MonoBehaviour
         dunGenManager = GetComponent<DungeonGenerationManager>();
     }
 
-    public void SpawnNPC(GameObject prefab, Cell cell)
+    public GameObject SpawnNPC(GameObject prefab, Cell cell)
     {
         Debug.Log("Spawn NPC");
 
@@ -25,6 +25,8 @@ public class NPC_Manager : MonoBehaviour
         npc.transform.parent = dunGenManager.transform;
         npc.GetComponent<GroundAI>().curTile = cell.tileGenManager;
         cell.tileGenManager.allGroundAi.Add(npc.GetComponent<GroundAI>()); // add to tile manager's list
+
+        return npc;
     }
 
 

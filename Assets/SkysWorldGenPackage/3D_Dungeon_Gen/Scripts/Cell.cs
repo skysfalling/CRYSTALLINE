@@ -2,11 +2,20 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+//                      INACTIVE (-3) : Nothing can be spawned here.
+//                      CHECKED (-2) : Checked cell in A* Pathfinding.
+//                      EMPTY (-1) : Empty cell, spawn friendly.
+//                      WALL (0) : Wall is spawned here.
+//                      EXIT (1) : Reserved for exit spawns, nothing else can be spawned here.
+//                      PATHWAY (2) : Reserved for pathway spawns, nothing else can be spawned here.
+
+public enum CELL_TYPE { INACTIVE, CHECKED, EMPTY , WALL, EXIT, PATHWAY }
+
 public class Cell : MonoBehaviour
 {
     public DungeonGenerationManager dunGenManager;
     public TileGenerationManager tileGenManager;
-    NPC_Manager npc;
+    NPC_Manager npcManager;
     Environment_Manager env;
 
     [Space(10)]
@@ -20,7 +29,7 @@ public class Cell : MonoBehaviour
 
     [Space(10)]
     public Vector2 coord;
-    public int cellType = -1;
+    public CELL_TYPE cellType = CELL_TYPE.EMPTY;
     public int cellSize;
     public GameObject cellModel;
     [Range(0.1f, 1f)]
@@ -61,7 +70,7 @@ public class Cell : MonoBehaviour
         tileGenManager = GetComponentInParent<TileGenerationManager>();
         dunGenManager = tileGenManager.dunGenManager;
 
-        npc = dunGenManager.npc_manager;
+        npcManager = dunGenManager.npc_manager;
         env = dunGenManager.env_manager;
 
         cellSize = tileGenManager.cellSize;
@@ -71,14 +80,14 @@ public class Cell : MonoBehaviour
     public void SetDebugCube(bool enabled = true)
     {
         // is not enabled , make sure to disable
-        if (!enabled)
+        if (enabled == false)
         {
             debugCube.SetActive(false);
             return;
         }
 
         // if not empty or a wall...
-        if (cellType != -1 || cellType != 0)
+        if (cellType != CELL_TYPE.EMPTY)
         {
             // set active
             debugCube.SetActive(true);
@@ -86,19 +95,19 @@ public class Cell : MonoBehaviour
 
             switch (cellType)
             {
-                case -3:
+                case CELL_TYPE.INACTIVE:
                     meshR.material = debug_inactiveCellMat;
                     break;
-                case -1:
+                case CELL_TYPE.EMPTY:
                     meshR.material = debug_emptyMat;
                     break;
-                case 0:
+                case CELL_TYPE.WALL:
                     meshR.material = debug_obstacleMat;
                     break;
-                case 1:
+                case CELL_TYPE.EXIT:
                     meshR.material = debug_exitMat;
                     break;
-                case 2:
+                case CELL_TYPE.PATHWAY:
                     meshR.material = debug_pathMat;
                     break;
             }
@@ -107,6 +116,8 @@ public class Cell : MonoBehaviour
         {
             debugCube.SetActive(false);
         }
+
+        debugCube.transform.localScale = Vector3.one * modelScale * 0.5f;
     }
 
     public void TempChangeDebugMat(Material mat)
@@ -120,7 +131,7 @@ public class Cell : MonoBehaviour
     {
         // << DEBUG >>
         // if debug
-        if (tileGenManager.indivDebug && cellType == 0)
+        if (tileGenManager.indivDebug && cellType == CELL_TYPE.WALL)
         {
             cellModel = Instantiate(debugWall, transform.position, Quaternion.identity);
             cellModel.transform.localScale = new Vector3(cellSize, cellSize, cellSize);
@@ -129,20 +140,25 @@ public class Cell : MonoBehaviour
             return;
         }
 
+        /*
         // change "checked tile" to empty tile
-        if (cellType == -2) { cellType = -1; }
+        if (cellType == CELL_TYPE.CHECKED) { cellType = CELL_TYPE.EMPTY; }
+        */
+
+        // change "checked tile" to pathway tile fuckit
+        if (cellType == CELL_TYPE.CHECKED) { cellType = CELL_TYPE.PATHWAY; }
 
         // change exit cells to proper cell type
-        foreach (Cell cell in tileGenManager.exitCells) { cell.cellType = 1; }
+        foreach (Cell cell in tileGenManager.exitCells) { cell.cellType = CELL_TYPE.EXIT; }
 
         // create model and place as child of parent
         switch (cellType)
         {
             // inactive cell
-            case -3:
+            case CELL_TYPE.INACTIVE:
                 break;
             // empty cell
-            case -1:
+            case CELL_TYPE.EMPTY:
 
                 // randomly decide to spawn obj 
                 if (Random.Range((float)0, (float)1) < env.emptySpaceSpawnWeight)
@@ -151,22 +167,24 @@ public class Cell : MonoBehaviour
                     GameObject randomEmptyCellObj = env.emptySpaceObjs[Random.Range(0, env.emptySpaceObjs.Count)];
 
                     cellModel = Instantiate(randomEmptyCellObj, randomEmptyCellObj.transform.localPosition + transform.position, Quaternion.identity);
-                    cellModel.transform.localScale = new Vector3(cellSize * modelScale, cellSize * modelScale, cellSize * modelScale);
+                    cellModel.transform.localScale = Vector3.one * cellSize * modelScale;
                     cellModel.transform.parent = this.transform;
                 }
 
                 // randomly decide to spawn npcs
-                if (Random.Range((float)0, (float)1) < npc.spawnWeight)
+                if (Random.Range((float)0, (float)1) < npcManager.spawnWeight)
                 {
                     // choose random model from list
-                    GameObject npc_obj = npc.prefabs[Random.Range(0, npc.prefabs.Count)];
-                    npc.SpawnNPC(npc_obj, GetComponent<Cell>());
+                    GameObject npc_obj = npcManager.SpawnNPC(npcManager.prefabs[Random.Range(0, npcManager.prefabs.Count)], GetComponent<Cell>());
+                    npc_obj.transform.localScale = Vector3.one * cellSize * modelScale;
+                    npc_obj.transform.parent = this.transform;
+
                 }
 
                 break;
 
             // case 0 == WALL
-            case 0:
+            case CELL_TYPE.WALL:
                 if (tileGenManager.roomTile)
                 {
                     SpawnRoomObstacles(tileGenManager.wallHeight); // focus on room walls first before spawning everything else
@@ -182,7 +200,7 @@ public class Cell : MonoBehaviour
                 break;
 
             // case 1 == exit
-            case 1:
+            case CELL_TYPE.EXIT:
 
                 exitHeightDifference = ExitHeightDifference();
                 SpawnExitModels(cellSize);
@@ -190,7 +208,7 @@ public class Cell : MonoBehaviour
                 break;
 
             // case 2 == pathway
-            case 2:
+            case CELL_TYPE.PATHWAY:
                 // randomly decide to spawn obj 
                 if (env.pathObjs.Count > 0 && Random.Range((float)0, (float)1) < env.pathSpawnWeight)
                 {
@@ -419,7 +437,7 @@ public class Cell : MonoBehaviour
 
         foreach (Cell cell in cellNeighbors)
         {
-            if (cell.cellType == -1 || cell.cellType == 0)
+            if (cell.cellType == CELL_TYPE.EMPTY || cell.cellType == CELL_TYPE.WALL)
             {
                 emptyCellsCount++;
             }

@@ -45,6 +45,8 @@ public class WorldGenManager : MonoBehaviour
     public void GenerateWorld()
     {
 
+        Debug.Log("DUNGEON GENERATION OVERRIDE ==> WORLD GENERATION MANAGER");
+
         dunGenManager.individualTileSize = individualTileSize;
         dunGenManager.obstacleSpawnWeight = obstacleSpawnWeight;
         dunGenManager.roomSpawnWeight = roomSpawnWeight;
