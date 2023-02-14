@@ -236,6 +236,21 @@ public class Cell : MonoBehaviour
 
                 }
                 break;
+
+            // case 2 == pathway
+            case CELL_TYPE.CEILING:
+                // randomly decide to spawn obj 
+                if (env.ceilingObjs.Count > 0 && Random.Range((float)0, (float)1) < env.ceilingSpawnWeight)
+                {
+                    // choose random model from list
+                    GameObject randomCeilingObj = env.ceilingObjs[Random.Range(0, env.ceilingObjs.Count)];
+
+                    cellModel = Instantiate(randomCeilingObj, transform.position, Quaternion.identity);
+                    cellModel.transform.localScale *= cellSize * modelScale;
+                    cellModel.transform.parent = this.transform;
+
+                }
+                break;
         }
 
         // << RANDOMIZE MODEL POSITIONS >>

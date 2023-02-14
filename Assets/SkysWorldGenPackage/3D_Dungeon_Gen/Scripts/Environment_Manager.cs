@@ -25,7 +25,7 @@ public class Environment_Manager : MonoBehaviour
     public List<GameObject> obstacleObjs_5cell; // if one cell and all of its neighbors are available
 
 
-    [Space(10)]
+    [Header("==== Wall Climb ====")]
     [Range(0, 1)]
     public float wallClimbSpawnWeight = 0.2f;
     public List<GameObject> wallClimbObjs;
@@ -42,6 +42,11 @@ public class Environment_Manager : MonoBehaviour
     [Range(0, 1)]
     public float exitSpawnWeight = 1f;
     public List<GameObject> exitObjs;
+
+    [Header("==== Ceiling ====")]
+    [Range(0, 1)]
+    public float ceilingSpawnWeight = 0.2f;
+    public List<GameObject> ceilingObjs;
 
     [Header("==== Empty Space ====")]
     [Range(0, 1)]
