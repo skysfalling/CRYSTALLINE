@@ -59,6 +59,8 @@ public class GameManager : MonoBehaviour
 
     }
 
+    public void StartGame() { StartCoroutine(GameStart()); }
+
     IEnumerator GameStart()
     {
         yield return new WaitUntil(() => worldGen.dunGenManager != null);

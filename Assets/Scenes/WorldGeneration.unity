@@ -616,21 +616,9 @@ PrefabInstance:
       value: 0.01
       objectReference: {fileID: 0}
     - target: {fileID: 9203589319559507378, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
-      propertyPath: ceilingSpawnWeight
-      value: 0.02
-      objectReference: {fileID: 0}
-    - target: {fileID: 9203589319559507378, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: emptySpaceSpawnWeight
       value: 0.1
       objectReference: {fileID: 0}
-    - target: {fileID: 9203589319559507378, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
-      propertyPath: ceilingObjs.Array.size
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 9203589319559507378, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
-      propertyPath: ceilingObjs.Array.data[0]
-      value: 
-      objectReference: {fileID: 2475696016399796496, guid: 2753fa1845e1a0b4b8ba118c9e38909d, type: 3}
     - target: {fileID: 9203589319559507378, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: emptySpaceObjs.Array.size
       value: 2

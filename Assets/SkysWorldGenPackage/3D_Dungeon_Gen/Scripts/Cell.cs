@@ -191,13 +191,14 @@ public class Cell : MonoBehaviour
                 {
                     // choose random model from list
                     GameObject npc_obj = npcManager.SpawnNPC(npcManager.prefabs[Random.Range(0, npcManager.prefabs.Count)], GetComponent<Cell>());
-                    cellModel.transform.localScale *= cellSize * modelScale;
+                    npc_obj.transform.localScale *= cellSize * modelScale;
                     npc_obj.transform.parent = this.transform;
 
                 }
 
                 break;
 
+                /*
             // case 0 == WALL
             case CELL_TYPE.WALL:
                 if (tileGenManager.roomTile)
@@ -213,6 +214,7 @@ public class Cell : MonoBehaviour
                 //tileGenManager.sourceMeshFilters.Add(cellModel.GetComponent<MeshFilter>());
 
                 break;
+                */
 
             // case 1 == exit
             case CELL_TYPE.EXIT:
