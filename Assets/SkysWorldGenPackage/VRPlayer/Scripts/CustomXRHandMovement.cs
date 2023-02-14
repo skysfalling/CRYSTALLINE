@@ -22,6 +22,11 @@ public class CustomXRHandMovement : MonoBehaviour
     public LayerMask climbLayer;
     public float triggerRadius = 0.1f;
     public bool onClimbObj;
+    public List<Collider> handOverlapColliders;
+
+    [Header("Swinging")]
+    public bool isSwinging;
+    public GameObject swingObject;
 
 
     void Start()
@@ -36,7 +41,7 @@ public class CustomXRHandMovement : MonoBehaviour
         onClimbObj = HandOnClimbableObj();
 
         // movement enabled
-        if ( (movementManager.inAirMovement || HandOnClimbableObj()) && CheckControllerGrip())
+        if ( (movementManager.isSwinging || HandOnClimbableObj()) && CheckControllerGrip())
         {
             physicsHand.hookesLawEnabled = true;
 
@@ -47,19 +52,40 @@ public class CustomXRHandMovement : MonoBehaviour
             physicsHand.hookesLawEnabled = false;
         }
 
-
     }
 
     // <<<< CHECK IF CAN CLIMB >>>>
     public bool HandOnClimbableObj()
     {
         Collider[] foundColliders = Physics.OverlapSphere(transform.position, triggerRadius, climbLayer);
+        handOverlapColliders = new List<Collider>(foundColliders);
+
 
         if (foundColliders.Length > 0)
             return true;
         else
             return false;
     }
+
+    public GameObject GetSwingableObject()
+    {
+        if (handOverlapColliders.Count > 0)
+        {
+            for (int i = 0; i < handOverlapColliders.Count; i++)
+            {
+                if (handOverlapColliders[i].gameObject.layer == LayerMask.NameToLayer("Swingable"))
+                {
+                    isSwinging = true;
+                    return handOverlapColliders[i].gameObject;
+                }
+            }
+        }
+
+        isSwinging = false;
+
+        return null;
+    }
+
 
     // <<<< IS CONTROLLER GRIPPING? >>>>
     public bool CheckControllerGrip()

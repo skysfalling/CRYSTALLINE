@@ -42,6 +42,9 @@ public class XRHeadsetUI : MonoBehaviour
 
         DisplayBool("Grounded", movementManager.isGrounded);
 
+        DisplayBool("Swinging", movementManager.isSwinging);
+
+
         DisplayBool("Climbing", movementManager.isClimbing);
 
         DisplayBool("Left Can Climb", leftHandMovement.HandOnClimbableObj());
