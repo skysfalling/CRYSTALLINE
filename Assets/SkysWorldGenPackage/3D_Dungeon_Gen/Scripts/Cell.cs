@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -14,7 +13,7 @@ using UnityEngine;
 //                      AIR (5) : Reserved for midair spawns, nothing else can be spawned here.
 
 
-public enum CELL_TYPE { NONE, INACTIVE, CHECKED, EMPTY_FLOOR, WALL, EXIT, PATHWAY, SIDE, CEILING, AIR}
+public enum CELL_TYPE { NONE, INACTIVE, CHECKED, EMPTY_FLOOR, WALL, EXIT, EXITWALL, PATHWAY, SIDE, CEILING, AIR}
 
 public class Cell : MonoBehaviour
 {
@@ -97,7 +96,7 @@ public class Cell : MonoBehaviour
         }
 
         // if not empty or a wall...
-        if (cellType != CELL_TYPE.NONE && cellType != CELL_TYPE.WALL)
+        if (cellType != CELL_TYPE.NONE && cellType != CELL_TYPE.AIR)
         {
             // set active
             debugCube.SetActive(true);
@@ -118,6 +117,7 @@ public class Cell : MonoBehaviour
                     meshR.material = debug_wallMat;
                     break;
                 case CELL_TYPE.EXIT:
+                case CELL_TYPE.EXITWALL:
                     meshR.material = debug_exitMat;
                     break;
                 case CELL_TYPE.PATHWAY:
@@ -151,17 +151,6 @@ public class Cell : MonoBehaviour
     // <<<< CELL MODELS >>>> ================================================
     public void SpawnCellModels()
     {
-        // << DEBUG >>
-        // if debug
-        if (tileGenManager.indivDebug && cellType == CELL_TYPE.WALL)
-        {
-            cellModel = Instantiate(debugWall, transform.position, Quaternion.identity);
-            cellModel.transform.localScale = new Vector3(cellSize, cellSize, cellSize);
-            cellModel.transform.localPosition += new Vector3(0, cellSize / 2, 0);
-            cellModel.transform.parent = transform;
-            return;
-        }
-
 
         // change "checked tile" to pathway tile fuckit
         if (cellType == CELL_TYPE.CHECKED) { cellType = CELL_TYPE.PATHWAY; }
@@ -169,107 +158,18 @@ public class Cell : MonoBehaviour
         // create model and place as child of parent
         switch (cellType)
         {
-            // inactive cell
-            case CELL_TYPE.INACTIVE:
-                break;
-            // empty cell
             case CELL_TYPE.EMPTY_FLOOR:
-
-                // randomly decide to spawn obj 
-                if (Random.Range((float)0, (float)1) < env.emptySpaceSpawnWeight)
-                {
-                    // choose random model from list
-                    GameObject randomEmptyCellObj = env.emptySpaceObjs[Random.Range(0, env.emptySpaceObjs.Count)];
-
-                    cellModel = Instantiate(randomEmptyCellObj, randomEmptyCellObj.transform.localPosition + transform.position, Quaternion.identity);
-                    cellModel.transform.localScale *= cellSize * modelScale;
-                    cellModel.transform.parent = this.transform;
-                }
-
-                // randomly decide to spawn npcs
-                if (Random.Range((float)0, (float)1) < npcManager.spawnWeight)
-                {
-                    // choose random model from list
-                    GameObject npc_obj = npcManager.SpawnNPC(npcManager.prefabs[Random.Range(0, npcManager.prefabs.Count)], GetComponent<Cell>());
-                    npc_obj.transform.localScale *= cellSize * modelScale;
-                    npc_obj.transform.parent = this.transform;
-
-                }
-
+                cellModel = SpawnRandomPrefabInFloorCell(env.empty_floor_prefabs, env.empty_floor_spawn_weight, true);
                 break;
-
-                /*
-            // case 0 == WALL
             case CELL_TYPE.WALL:
-                if (tileGenManager.roomTile)
-                {
-                    SpawnRoomObstacles(tileGenManager.wallHeight); // focus on room walls first before spawning everything else
-                }
-                else
-                {
-                    SpawnObstacles(tileGenManager.wallHeight);
-                }
-
-                // add to source mesh filters to be combined
-                //tileGenManager.sourceMeshFilters.Add(cellModel.GetComponent<MeshFilter>());
-
+                cellModel = SpawnRandomPrefabOnWall(env.wall_prefabs, env.wall_spawn_weight, false, false);
                 break;
-                */
-
-            // case 1 == exit
-            case CELL_TYPE.EXIT:
-
-                exitHeightDifference = ExitHeightDifference();
-                SpawnExitModels(cellSize);
-
+            case CELL_TYPE.SIDE:
+                cellModel = SpawnRandomPrefabOnWall(env.side_prefabs, env.side_spawn_weight, false, false);
                 break;
 
-            // case 2 == pathway
-            case CELL_TYPE.PATHWAY:
-                // randomly decide to spawn obj 
-                if (env.pathObjs.Count > 0 && Random.Range((float)0, (float)1) < env.pathSpawnWeight)
-                {
-                    // choose random model from list
-                    GameObject randomPathObj = env.pathObjs[Random.Range(0, env.pathObjs.Count)];
 
-                    cellModel = Instantiate(randomPathObj, randomPathObj.transform.localPosition + transform.position, Quaternion.identity);
-                    cellModel.transform.localScale *= cellSize * modelScale;
-                    cellModel.transform.parent = this.transform;
 
-                }
-                break;
-
-            // case 2 == pathway
-            case CELL_TYPE.CEILING:
-                // randomly decide to spawn obj 
-                if (env.ceilingObjs.Count > 0 && Random.Range((float)0, (float)1) < env.ceilingSpawnWeight)
-                {
-                    // choose random model from list
-                    GameObject randomCeilingObj = env.ceilingObjs[Random.Range(0, env.ceilingObjs.Count)];
-
-                    cellModel = Instantiate(randomCeilingObj, transform.position, Quaternion.identity);
-                    cellModel.transform.localScale *= cellSize * modelScale;
-                    cellModel.transform.parent = this.transform;
-
-                }
-                break;
-        }
-
-        // << RANDOMIZE MODEL POSITIONS >>
-        if (cellModel != null)
-        {
-            // randomize inner cell pos
-            if (randomizeInnerCellPosition)
-            {
-                cellModel.transform.localPosition += new Vector3(Random.Range((float)-cellSize / 3, (float)cellSize / 3), 0,
-                                                            Random.Range((float)-cellSize / 3, (float)cellSize / 3));
-            }
-
-            // randomize rotation of obj
-            if (randomizeRotation)
-            {
-                cellModel.transform.rotation = Quaternion.Euler(new Vector3(0, Random.Range((float)0, (float)180), 0));
-            }
         }
 
     }
@@ -293,6 +193,8 @@ public class Cell : MonoBehaviour
         return tileGenManager.GetCell(coord + direction);
     }
 
+    #region wall spawning
+    /*
     // ================================================= WALL MODELS ============================================================
     public void SpawnObstacles(int wallHeight)
     {
@@ -301,7 +203,7 @@ public class Cell : MonoBehaviour
         // ** NOTE : WALL EDGES ARE IF YOU WOULD LIKE TO GO BACK TO USING "CELLED" WALLS
         // currently the walls are one big block instead of many small ones
 
-        /*
+        
         // <<<< WALL EDGES >>>>
         // if is edge or corner, use different model
         if (!roomEdgeOverride && env.wallEdgeObjs.Count > 0 && (isLeftEdge || isRightEdge || isTopEdge || isBottomEdge || isCorner))
@@ -331,7 +233,7 @@ public class Cell : MonoBehaviour
                 cellModel.transform.rotation = Quaternion.Euler(new Vector3(0, rotationOffset, 0));
             }
         }
-        */
+        
 
 
         // <<<< MID ROOM OBSTACLES >>>>
@@ -434,44 +336,10 @@ public class Cell : MonoBehaviour
         SpawnObstacles(wallHeight);
     }
 
-    public void SpawnWallClimbObjs(float gridCellSize, int wallHeight, float weight)
-    {
-        // << WALL ACCESSORIES >>
-        if (!isCorner && env.wallClimbObjs.Count > 0 && Random.Range((float)0, (float)1) < weight)
-        {
-            // choose random model from list
-            GameObject wallClimbObj = env.wallClimbObjs[Random.Range(0, env.wallClimbObjs.Count)];
+    
+    */
+    #endregion
 
-            // spawn model at different heights
-            for (int heightLevel = 0; heightLevel < wallHeight; heightLevel++)
-            {
-                // << OFFSET POSITION >> (move closer to wall)
-                Vector3 offset = Vector3.zero;
-                if (isLeftEdge) { offset = new Vector3(-gridCellSize / 2, gridCellSize / 2, 0); }
-                else if (isRightEdge) { offset = new Vector3(gridCellSize / 2, gridCellSize / 2, 0); }
-                else if (isTopEdge) { offset = new Vector3(0, gridCellSize / 2, gridCellSize / 2); }
-                else if (isBottomEdge) { offset = new Vector3(0, gridCellSize / 2, -gridCellSize / 2); }
-
-                offset += new Vector3(0, heightLevel * gridCellSize, 0); // adjust height level each time
-
-
-                // << OFFSET ROTATION >>
-                float rotationOffset = 0;
-                if (isLeftEdge) { rotationOffset = 90; }
-                else if (isRightEdge) { rotationOffset = 270; }
-                else if (isTopEdge) { rotationOffset = 180; }
-                else if (isBottomEdge) { rotationOffset = 0; }
-
-
-
-                GameObject climbObj = Instantiate(wallClimbObj, transform.position, Quaternion.identity);
-                climbObj.transform.localPosition += offset;
-                climbObj.transform.rotation *= Quaternion.Euler(new Vector3(0, rotationOffset, 0));
-                climbObj.transform.localScale = new Vector3(gridCellSize * modelScale, gridCellSize * modelScale, gridCellSize * modelScale);
-                climbObj.transform.parent = transform;
-            }
-        }
-    }
 
     public int EmptyNeighborCells()
     {
@@ -491,9 +359,9 @@ public class Cell : MonoBehaviour
     }
 
     // ================================================= EXIT MODELS ============================================================
-    public void SpawnExitModels(float gridCellSize)
+    public void SpawnExitModels()
     {
-
+        /*
         // << SPAWN EXIT CEILINGS >>
         if (dunGenManager.env_manager.spawnCeilings && !tileGenManager.roomTile)
         {
@@ -507,18 +375,16 @@ public class Cell : MonoBehaviour
             // add to sorce mesh filters to combine later
             tileGenManager.sourceMeshFilters.Add(ceilingBlock.GetComponentInChildren<MeshFilter>());
         }
-
-
-
+        */
 
         // << RAISE/LOWER HEIGHT >>
         // if going up, spawn up ramp
         if (ExitHeightDifference() == 1)
         {
             // << SPAWN RAMP >>
-            GameObject ramp = Instantiate(env.exitRamps[0], transform.position, Quaternion.identity);
-            ramp.transform.localScale = new Vector3(gridCellSize, gridCellSize, gridCellSize); // adjust scale to cell size
-            ramp.transform.localPosition += new Vector3(0, gridCellSize / 2, 0); // vertical offset
+            GameObject ramp = Instantiate(env.exit_ramp, transform.position, Quaternion.identity);
+            ramp.transform.localScale = new Vector3(cellSize, cellSize, cellSize); // adjust scale to cell size
+            ramp.transform.localPosition += new Vector3(0, cellSize / 2, 0); // vertical offset
             ramp.transform.parent = tileGenManager.tileGround.transform;
 
             // << OFFSET ROTATION >>
@@ -536,7 +402,7 @@ public class Cell : MonoBehaviour
         }
         else if (ExitHeightDifference() > 1)
         {
-            SpawnWallClimbObjs(gridCellSize, ExitHeightDifference(), 1); // always spawn wall climb at exits
+            SpawnWallClimbObjs(env.wall_prefabs, ExitHeightDifference(), 1); // always spawn wall climb at exits
         }
 
 
@@ -581,4 +447,131 @@ public class Cell : MonoBehaviour
 
         return 0;
     }
+
+    public void SpawnWallClimbObjs(List<GameObject> prefabs, int wallHeight, float weight)
+    {
+        // << WALL ACCESSORIES >>
+        if (!isCorner && prefabs.Count > 0 && Random.Range((float)0, (float)1) < weight)
+        {
+            // choose random model from list
+            GameObject wallClimbObj = prefabs[Random.Range(0, prefabs.Count)];
+
+            // spawn model at different heights
+            for (int heightLevel = 0; heightLevel < wallHeight; heightLevel++)
+            {
+                // << OFFSET POSITION >> (move closer to wall)
+                Vector3 offset = Vector3.zero;
+                if (isLeftEdge) { offset = new Vector3(-cellSize / 2, cellSize / 2, 0); }
+                else if (isRightEdge) { offset = new Vector3(cellSize / 2, cellSize / 2, 0); }
+                else if (isTopEdge) { offset = new Vector3(0, cellSize / 2, cellSize / 2); }
+                else if (isBottomEdge) { offset = new Vector3(0, cellSize / 2, -cellSize / 2); }
+
+                offset += new Vector3(0, heightLevel * cellSize, 0); // adjust height level each time
+
+
+                // << OFFSET ROTATION >>
+                float rotationOffset = 0;
+                if (isLeftEdge) { rotationOffset = 90; }
+                else if (isRightEdge) { rotationOffset = 270; }
+                else if (isTopEdge) { rotationOffset = 180; }
+                else if (isBottomEdge) { rotationOffset = 0; }
+
+
+
+                GameObject climbObj = Instantiate(wallClimbObj, transform.position, Quaternion.identity);
+                climbObj.transform.localPosition += offset;
+                climbObj.transform.rotation *= Quaternion.Euler(new Vector3(0, rotationOffset, 0));
+                climbObj.transform.localScale = new Vector3(cellSize * modelScale, cellSize * modelScale, cellSize * modelScale);
+                climbObj.transform.parent = transform;
+            }
+        }
+    }
+
+    // ================================================ HELPER FUNCTIONS =======================================================
+    public GameObject SpawnRandomPrefabInFloorCell(List<GameObject> prefabs, float spawnWeight, bool randomizePos = false, bool randomizeRot = true )
+    {
+        // randomly decide to spawn obj 
+        if (Random.Range((float)0, (float)1) < spawnWeight)
+        {
+            // choose random model from list
+            GameObject randObj = prefabs[Random.Range(0, prefabs.Count)];
+
+            cellModel = Instantiate(randObj, randObj.transform.localPosition + transform.position, Quaternion.identity);
+            cellModel.transform.localScale *= cellSize * modelScale;
+            cellModel.transform.parent = this.transform;
+
+
+            // randomize inner cell pos
+            if (randomizePos)
+            {
+                cellModel.transform.localPosition += new Vector3(Random.Range((float)-cellSize / 3, (float)cellSize / 3), 0, Random.Range((float)-cellSize / 3, (float)cellSize / 3));
+            }
+
+            // randomize rotation of obj
+            if (randomizeRot)
+            {
+                cellModel.transform.rotation = Quaternion.Euler(new Vector3(0, Random.Range((float)0, (float)180), 0));
+            }
+
+            return cellModel;
+        }
+
+        return null;
+    }
+
+    public GameObject SpawnRandomPrefabOnWall(List<GameObject> prefabs, float spawnWeight, bool randomizePos = false, bool randomizeRot = false)
+    {
+        // << WALL ACCESSORIES >>
+        if (prefabs.Count > 0 && Random.Range((float)0, (float)1) < spawnWeight)
+        {
+            // choose random model from list
+            GameObject randObj = prefabs[Random.Range(0, prefabs.Count)];
+
+            
+            // << OFFSET POSITION >> (move closer to wall)
+            Vector3 offset = Vector3.zero;
+            if (isLeftEdge) { offset = new Vector3(-cellSize / 2, cellSize / 2, 0); }
+            else if (isRightEdge) { offset = new Vector3(cellSize / 2, cellSize / 2, 0); }
+            else if (isTopEdge) { offset = new Vector3(0, cellSize / 2, cellSize / 2); }
+            else if (isBottomEdge) { offset = new Vector3(0, cellSize / 2, -cellSize / 2); }
+
+            // << OFFSET ROTATION >>
+            float rotationOffset = 0;
+            if (isLeftEdge) { rotationOffset = 90; }
+            else if (isRightEdge) { rotationOffset = 270; }
+            else if (isTopEdge) { rotationOffset = 180; }
+            else if (isBottomEdge) { rotationOffset = 0; }
+
+
+            // << SPAWN WALL OBJECT >>
+            GameObject wallObj = Instantiate(randObj, transform.position, Quaternion.identity);
+
+            /*
+            wallObj.transform.localPosition += offset;
+            wallObj.transform.rotation *= Quaternion.Euler(new Vector3(0, rotationOffset, 0));
+            */
+
+            wallObj.transform.localScale *= cellSize * modelScale;
+            wallObj.transform.parent = transform;
+
+            // randomize inner cell pos
+            if (randomizePos)
+            {
+                wallObj.transform.localPosition += new Vector3(Random.Range((float)-cellSize / 3, (float)cellSize / 3), 0, Random.Range((float)-cellSize / 3, (float)cellSize / 3));
+            }
+
+            // randomize rotation of obj
+            if (randomizeRot)
+            {
+                wallObj.transform.rotation = Quaternion.Euler(new Vector3(0, Random.Range((float)0, (float)180), 0));
+            }
+
+            return wallObj;
+        }
+
+        return null;
+
+    }
+
+
 }

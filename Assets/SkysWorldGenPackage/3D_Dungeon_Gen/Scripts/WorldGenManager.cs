@@ -53,6 +53,7 @@ public class WorldGenManager : MonoBehaviour
         if (dunGenManager == null) { Debug.Log("DUN GEN MANAGER COULD NOT BE FOUND"); }
         else
         {
+            /*
             dunGenManager.individualTileSize = individualTileSize;
             dunGenManager.obstacleSpawnWeight = obstacleSpawnWeight;
             dunGenManager.roomSpawnWeight = roomSpawnWeight;
@@ -60,6 +61,7 @@ public class WorldGenManager : MonoBehaviour
             envManager.spawnCeilings = spawnCeilings;
 
             npcManager.spawnWeight = npcSpawnWeight;
+            */
 
             StartCoroutine(dunGenManager.Generate(Vector3.zero));
         }

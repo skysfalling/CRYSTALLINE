@@ -38,6 +38,9 @@ public class DungeonGenerationManager : MonoBehaviour
     public bool initOnSceneStart;
     public LineRenderer outlineLR;
     public LineRenderer mainPathLR;
+    public Material mainPath_material;
+    public Material branchPath_material;
+
 
     [Header("Generation Parameters")]
     public bool generationStarted;
@@ -113,6 +116,8 @@ public class DungeonGenerationManager : MonoBehaviour
 
         // set individual cell size
         cellSize = (individualTileSize / cellsPerTile);
+
+        Debug.Log("Cell Size :: " + cellSize);
     }
 
     private void Update()
@@ -138,15 +143,6 @@ public class DungeonGenerationManager : MonoBehaviour
         generationStarted = false;
         generationFinished = false;
     }
-
-    public void ResetGeneration()
-    {
-        ClearGeneration();
-
-        //StartCoroutine(Generate(startTileCoord));
-    }
-
-
 
     // ======================================= DUNGEON GENERATION =================================================
 
@@ -194,13 +190,12 @@ public class DungeonGenerationManager : MonoBehaviour
         foreach (TileGenerationManager tile in allTiles)
         {
             tile.SetNecessaryExitPoints();
-            tile.SetRandomExits();
         }
 
         yield return new WaitForSeconds(0.5f);
 
         // << GENERATE 3D MODELS FOR EACH TILE >>
-        StartCoroutine(StaggeredTileInit(debug));
+        StartCoroutine(StaggeredTileInit());
 
         yield return new WaitUntil(() => generationFinished);
 
@@ -586,14 +581,14 @@ public class DungeonGenerationManager : MonoBehaviour
     }
 
     // initialize each tile one at a time
-    public IEnumerator StaggeredTileInit(bool debug = false)
+    public IEnumerator StaggeredTileInit()
     {
         // << GENERATE 3D MODELS FOR EACH TILE >>
         for (int i = 0; i < allTiles.Count; i++)
         {
             if (allTiles[i] != null){
-                allTiles[i].TileInit(debug);
-                yield return new WaitUntil(() => allTiles[i].debugGenFinished);
+                allTiles[i].TileInit();
+                yield return new WaitUntil(() => allTiles[i].tileInitialized);
             }
         }
 
@@ -601,13 +596,16 @@ public class DungeonGenerationManager : MonoBehaviour
         //yield return null;
     }
 
+    public bool runOnce = false;
+    public List<GameObject> branchObjs;
     public void DebugVisualizations(bool enabled)
     {
+        // turn main path on / off
         mainPathLR.gameObject.SetActive(enabled);
+        if (!enabled) { runOnce = false; return; } // if not off, continue
+        runOnce = true;
 
-        if (!enabled) { return; }
-
-        float pathVertOffset = 10;
+        float pathVertOffset = 10; // height offset of line
         
         // <<<< VISUALIZE MAIN PATH >>>>
         List<Vector3> mainPathDebugPoints = new List<Vector3>();
@@ -618,6 +616,31 @@ public class DungeonGenerationManager : MonoBehaviour
 
         mainPathLR.positionCount = mainPathDebugPoints.Count;
         mainPathLR.SetPositions(mainPathDebugPoints.ToArray());
+
+
+        /*
+
+        // << CREATE LR FOR BRANCH PATH >>
+        foreach (List<TileGenerationManager> branch in branches)
+        {
+
+            GameObject newBranchObject = new GameObject();
+            newBranchObject.transform.parent = mainPathLR.transform;
+            branchObjs.Add(newBranchObject);
+            LineRenderer newBranchLR = newBranchObject.AddComponent<LineRenderer>();
+            newBranchLR.material = branchPath_material;
+
+            List<Vector3> points = new List<Vector3>();
+
+            foreach (TileGenerationManager tile in branch)
+            {
+                points.Add(tile.transform.position + new Vector3(0, pathVertOffset, 0));
+            }
+
+            newBranchLR.SetPositions(points.ToArray());
+
+        }
+        */
 
 
     }
