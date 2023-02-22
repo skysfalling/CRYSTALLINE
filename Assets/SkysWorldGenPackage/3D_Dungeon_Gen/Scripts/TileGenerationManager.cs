@@ -270,10 +270,11 @@ public class TileGenerationManager : MonoBehaviour
         ExpandAllExits();
 
 
-        /*
+        
         // turn on / off walls based on rooms
         SetRoomWalls();
 
+        
         // determine which cells are the sides of the grid
         DetermineSideCells();
 
@@ -281,18 +282,19 @@ public class TileGenerationManager : MonoBehaviour
         DetermineCeilingCells();
 
         // create walls
-        // CreateOptimizedWalls();
+        CreateAllWalls();
 
-
+        
         // spawn models for each cell
         SpawnAllCellModels();
 
+        
         // combine all cell meshes 
         CombineMeshes();
 
         // set all spawn points
         SetSpawns();
-        */
+        
 
 
     }
@@ -604,12 +606,6 @@ public class TileGenerationManager : MonoBehaviour
     }
     #endregion=======================================================================================================
 
-
-
-
-
-
-
     // <<<< DETERMINE SIDE CELLS >>>>
     public void DetermineSideCells()
     {
@@ -735,12 +731,46 @@ public class TileGenerationManager : MonoBehaviour
      * If an exit is needed, create two seperate walls so that there's space in between
      * Else spawn one big wall
      */
-    public void CreateOptimizedWalls()
+    public void CreateAllWalls()
     {
+        // << LEFT WALL >>
+        if (!leftWallDisabled && !needLeftExit)
+        {
+            GameObject leftWall = CreateWall(leftEdgeCells);
+            leftWall.name = "Left Wall";
 
+            walls.Add(leftWall);
+        }
 
-        // << ADJUST WALL HEIGHT >>
-        wallParent.transform.position += new Vector3(0, -cellSize * 0.25f, 0);
+        // << RIGHT WALL >>
+        if (!rightWallDisabled && !needRightExit)
+        {
+            GameObject rightWall = CreateWall(rightEdgeCells);
+            rightWall.name = "Right Wall";
+
+            walls.Add(rightWall);
+        }
+
+        // << TOP WALL >>
+        if (!topWallDisabled && !needTopExit)
+        {
+            GameObject topWall = CreateWall(topEdgeCells);
+            topWall.transform.rotation = Quaternion.Euler(new Vector3(0, 90, 0));
+            topWall.name = "Top Wall";
+
+            walls.Add(topWall);
+        }
+
+        // << BOTTOM WALL >>
+        if (!bottomWallDisabled && !needBottomExit)
+        {
+            GameObject botWall = CreateWall(bottomEdgeCells);
+            botWall.transform.rotation = Quaternion.Euler(new Vector3(0, 90, 0));
+            botWall.name = "Bot Wall";
+
+            walls.Add(botWall);
+
+        }
 
         // << ADD WALLS TO GENERATED MESH >>
         foreach (GameObject wall in walls)
@@ -748,6 +778,20 @@ public class TileGenerationManager : MonoBehaviour
             sourceMeshFilters.Add(wall.GetComponentInChildren<MeshFilter>());
         }
 
+    }
+
+    public GameObject CreateWall(List<Cell> edgeCells)
+    {
+        GameObject new_wall = ChooseRandomEdgeWall();
+        new_wall.transform.parent = wallParent.transform;
+
+        new_wall.transform.position = CellPositionMidpoint(edgeCells[0], edgeCells[edgeCells.Count - 1]);
+        new_wall.transform.position += new Vector3(0, (cellSize * wallHeight * 0.5f), 0);
+
+
+        new_wall.transform.localScale = new Vector3(cellSize, cellSize * wallHeight, cellSize * (edgeCells.Count + 2));
+
+        return new_wall;
     }
 
     public GameObject ChooseRandomEdgeWall()
