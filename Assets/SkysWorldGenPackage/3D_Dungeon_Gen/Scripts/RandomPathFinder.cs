@@ -30,8 +30,6 @@ public class RandomPathFinder : MonoBehaviour
     public List<Cell> visitedCells = new List<Cell>();
     public List<Cell> validAdjacentHeadCells = new List<Cell>(); // i want to see the adjacent cells
 
-
-
     private void Awake()
     {
         tileGenManager = GetComponent<TileGenerationManager>();
@@ -45,7 +43,7 @@ public class RandomPathFinder : MonoBehaviour
         iterations = 0;
     }
 
-
+    #region CELL BASED A STAR ==========================================
     public List<Cell> FindRandomPath(List<Cell> allCells, Cell start, Cell end, bool pathA = false, bool pathB = false)
     {
         List<Cell> path = new List<Cell>();
@@ -121,12 +119,7 @@ public class RandomPathFinder : MonoBehaviour
 
     }
 
-
-
-
     // =========================================== PATH FINDER STEPS ==============================================
-
-
     // <<<< STEP 1 - FIND CHILDREN OF PATH HEAD >>>>
     private List<Cell> FindChildrenOfPathHead(Cell pathHead, Cell end)
     {
@@ -213,10 +206,6 @@ public class RandomPathFinder : MonoBehaviour
         
     }
 
-
-
-
-
     // =========================================== HELPER FUNCTIONS =============================================
     public void PrintGrid(List<List<int>> grid)
     {
@@ -246,7 +235,6 @@ public class RandomPathFinder : MonoBehaviour
         Debug.Log(test_out);
     }
 
-
     private List<Cell> GetAdjacentCells(Cell n)
     {
         List<Cell> temp = new List<Cell>();
@@ -274,4 +262,5 @@ public class RandomPathFinder : MonoBehaviour
 
         return temp;
     }
+    #endregion
 }

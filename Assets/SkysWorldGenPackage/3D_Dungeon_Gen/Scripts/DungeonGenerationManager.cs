@@ -47,7 +47,10 @@ public class DungeonGenerationManager : MonoBehaviour
     public bool generationFinished;
     [HideInInspector]
     public TileGenerationManager dungeonStartTile;
+    [HideInInspector]
+    public TileGenerationManager dungeonEndTile;
     public Vector2 startTileCoord = Vector2.zero;
+    public Vector2 endTileCoord = new Vector2(5, 0);
     public Vector2 generationBoundaries = new Vector2(10,10); //max +/- (horz/vert) coordinate
 
     [Header("Layers")]
@@ -155,7 +158,15 @@ public class DungeonGenerationManager : MonoBehaviour
         dungeonStartTile.pathBeginning = true;
         dungeonStartTile.dungeonBeginning = true;
         dungeonStartTile.tileHeightLevel = 0;
-        DiscoverPath(dungeonStartTile, mainPath, maxMainPathLength, transform, true, -1);
+
+        dungeonEndTile = CreateNewTile(endTileCoord, transform);
+        dungeonEndTile.dungeonEnd = true;
+
+
+        //DiscoverPath(dungeonStartTile, mainPath, maxMainPathLength, transform, true, -1);
+
+        DiscoverPathBetweenPoints(dungeonStartTile, dungeonEndTile, mainPath, transform, true);
+
         if (mainPath.Count <= 1) { print("Main Path too small"); yield return null; } // check if path is abnormally small
 
         yield return new WaitUntil(() => mainPathGenFinished);
@@ -169,6 +180,7 @@ public class DungeonGenerationManager : MonoBehaviour
             CreateRoomFromTile(tile);
         }
 
+        /*
         // << CREATE MAIN PATH BRANCHES >>
         // get branch nodes
         List<TileGenerationManager> mainPathBranchNodes = PathCreateBranchNodes(mainPath);
@@ -178,6 +190,7 @@ public class DungeonGenerationManager : MonoBehaviour
         {
             branches.Add(CreateBranchFromNode(node)); //create new branch
         }
+        */
 
         // for each branch path, randomize height
         foreach (List<TileGenerationManager> branch in branches)
@@ -205,52 +218,13 @@ public class DungeonGenerationManager : MonoBehaviour
     }
 
 
-    // ----------------------------------------- PATH GENERATION --------------------------------------------------
+    #region RANDOM PATH GENERATION ======================================
     // << CREATE PATH >> ** this recursively creates a randomized initial path from an initial start to a random end
-    public void DiscoverPath(TileGenerationManager originTile, List<TileGenerationManager> path, int pathLength, Transform parent, bool mainPath = false, int horzFavor = 1)
+    // << DISCOVER PATH FROM ORIGIN TILE >>
+    public void DiscoverRandomPath(TileGenerationManager originTile, List<TileGenerationManager> path, int pathLength, Transform parent, bool mainPath = false, int horzFavor = 1)
     {
         //print("Start Discover Path");
-
-        // << GET POSSIBLE DIRECTIONS FROM ORIGIN TILE >>
-        string debugOptions = originTile.coord.ToString() + "MOVE OPTIONS: ";
-
-        // if neighbor not present in that direction... add to possible directions
-        List<Vector2> horzSpawnDirections = new List<Vector2>();
-        if (originTile.tileNeighbors[0] == null 
-            && !TileOutOfBounds(originTile.coord + Vector2.left)) 
-        { horzSpawnDirections.Add(Vector2.left); debugOptions += "left "; }
-        if (originTile.tileNeighbors[1] == null 
-            && !TileOutOfBounds(originTile.coord + Vector2.right))
-        { horzSpawnDirections.Add(Vector2.right); debugOptions += "right "; }
-
-        // if neighbor not present in that direction... add to possible directions
-        List<Vector2> vertSpawnDirections = new List<Vector2>();
-        if (originTile.tileNeighbors[2] == null 
-            && !TileOutOfBounds(originTile.coord + Vector2.up)) 
-        { vertSpawnDirections.Add(Vector2.up); debugOptions += "up "; }
-        if (originTile.tileNeighbors[3] == null
-            && !TileOutOfBounds(originTile.coord + Vector2.down)) 
-        { vertSpawnDirections.Add(Vector2.down); debugOptions += "down "; }
-
-        //print(debugOptions); //print move options
-
-        // << RANDOM CHOICE >>
-        Vector2 spawnDirection = Vector2.zero;
-        float random = Random.Range(1, 10);
-        //print("random: " + random);
-
-        // spawn in random horizontal direction
-        if (random <= (5 + horzFavor) && horzSpawnDirections.Count != 0) { spawnDirection = horzSpawnDirections[Random.Range(0, horzSpawnDirections.Count)]; }
-
-        // spawn in random vertical direction
-        else if (vertSpawnDirections.Count != 0) { spawnDirection = vertSpawnDirections[Random.Range(0, vertSpawnDirections.Count)]; }
-
-        // if no vertical direction ... check if any horizontal direction
-        else if (vertSpawnDirections.Count == 0 && horzSpawnDirections.Count != 0) { spawnDirection = horzSpawnDirections[Random.Range(0, horzSpawnDirections.Count)]; }
-
-        // error checking
-        //else { Debug.LogWarning("No Possible New Spawn Directions at " + originTile.tileCoord.ToString()); }
-
+        Vector2 spawnDirection = GetRandomSpawnDirection(originTile, horzFavor);
 
         // ** IF VALID SPAWN DIRECTION **
         if (spawnDirection != Vector2.zero)
@@ -275,7 +249,7 @@ public class DungeonGenerationManager : MonoBehaviour
             if (path.Count < pathLength)
             {
                 // if hasn't reached max path length, continue
-                DiscoverPath(newTile, path, pathLength, parent, mainPath, horzFavor);
+                DiscoverRandomPath(newTile, path, pathLength, parent, mainPath, horzFavor);
             }
             else if (mainPath)
             {
@@ -289,6 +263,158 @@ public class DungeonGenerationManager : MonoBehaviour
 
         //Debug.Log(originTile.tileCoord + "spawn direction: " + spawnDirection);
     }
+
+    // << GET RANDOM VALID SPAWN DIRECTION >>
+    public Vector2 GetRandomSpawnDirection(TileGenerationManager originTile, int horzFavor = 1)
+    {
+        // << GET POSSIBLE DIRECTIONS FROM ORIGIN TILE >>
+        string debugOptions = originTile.coord.ToString() + "MOVE OPTIONS: ";
+
+        // [[ HORIZONTAL DIRECTIONS ]]
+        // if neighbor not present in that direction... add to possible directions
+        List<Vector2> horzSpawnDirections = new List<Vector2>();
+        if (originTile.GetTileNeighbor(Vector2.left) == null && !TileOutOfBounds(originTile.coord + Vector2.left))
+        { horzSpawnDirections.Add(Vector2.left); debugOptions += "left "; }
+
+        if (originTile.GetTileNeighbor(Vector2.right) && !TileOutOfBounds(originTile.coord + Vector2.right))
+        { horzSpawnDirections.Add(Vector2.right); debugOptions += "right "; }
+
+        // [[ VERTICAL DIRECTIONS ]]
+        // if neighbor not present in that direction... add to possible directions
+        List<Vector2> vertSpawnDirections = new List<Vector2>();
+        if (originTile.GetTileNeighbor(Vector2.up) && !TileOutOfBounds(originTile.coord + Vector2.up))
+        { vertSpawnDirections.Add(Vector2.up); debugOptions += "up "; }
+
+        if (originTile.GetTileNeighbor(Vector2.down) && !TileOutOfBounds(originTile.coord + Vector2.down))
+        { vertSpawnDirections.Add(Vector2.down); debugOptions += "down "; }
+
+        //print(debugOptions); //print move options
+
+        // << RANDOM CHOICE >>
+        Vector2 spawnDirection = Vector2.zero;
+        float random = Random.Range(1, 10);
+        //print("random: " + random);
+
+        // spawn in random horizontal direction
+        if (random <= (5 + horzFavor) && horzSpawnDirections.Count != 0) { spawnDirection = horzSpawnDirections[Random.Range(0, horzSpawnDirections.Count)]; }
+
+        // spawn in random vertical direction
+        else if (vertSpawnDirections.Count != 0) { spawnDirection = vertSpawnDirections[Random.Range(0, vertSpawnDirections.Count)]; }
+
+        // if no vertical direction ... check if any horizontal direction
+        else if (vertSpawnDirections.Count == 0 && horzSpawnDirections.Count != 0) { spawnDirection = horzSpawnDirections[Random.Range(0, horzSpawnDirections.Count)]; }
+
+        // error checking
+        //else { Debug.LogWarning("No Possible New Spawn Directions at " + originTile.tileCoord.ToString()); }
+
+        return spawnDirection;
+    }
+    #endregion
+
+    #region END POINT PATH GENERATION =============================
+    // << DISCOVER PATH BETWEEN TWO END TILES >>
+    public void DiscoverPathBetweenPoints(TileGenerationManager currentTile, TileGenerationManager endTile, List<TileGenerationManager> path, Transform parent, bool mainPath = false, int horzFavor = 1)
+    {
+        //print("Start Discover Path");
+        Vector2 spawnDirection = GetClosestSpawnDirection(currentTile, endTile);
+
+        // ** IF NOT END **
+        if (currentTile.coord + spawnDirection != endTile.coord)
+        {
+            TileGenerationManager newTile = CreateNewTile(currentTile.coord + spawnDirection, parent, path);
+
+            /*
+            // << ROOM SPAWN CHANCE >>
+            if (Random.Range((float)0, (float)1) < roomSpawnWeight)
+            {
+                newTile.roomTile = true;
+                roomStartTiles.Add(newTile);
+            }
+            */
+
+            // set path neighbors
+            newTile.prevPathTile = currentTile;
+            currentTile.nextPathTile = newTile;
+
+            // set height
+            newTile.tileHeightLevel = currentTile.tileHeightLevel;
+
+            // ** CONTINUE RECURSION **
+
+            // break infinite loop
+            if (path.Count > (generationBoundaries.x * generationBoundaries.y)) { Debug.LogError("Infinite Loop Generation"); return; }
+
+            // continue recursion
+            DiscoverPathBetweenPoints(newTile, endTile, path, parent, mainPath, horzFavor);
+            
+
+            mainPathGenFinished = true;  
+        }
+
+        // ** IF END IS FOUND **
+        else if (mainPath)
+        {
+            mainPathGenFinished = true;
+        }
+
+    }
+
+
+
+    // << GET RANDOM VALID SPAWN DIRECTION >>
+    public Vector2 GetClosestSpawnDirection(TileGenerationManager currentTile, TileGenerationManager endTile)
+    {
+        // << GET POSSIBLE DIRECTIONS FROM ORIGIN TILE >>
+
+        // [[ ALL DIRECTIONS ]]
+        // if neighbor not present in that direction... add to possible directions
+        List<Vector2> spawnDirections = new List<Vector2>();
+
+        if (currentTile.GetTileNeighbor(Vector2.left) == null && !TileOutOfBounds(currentTile.coord + Vector2.left))
+        { spawnDirections.Add(Vector2.left);}
+
+        if (currentTile.GetTileNeighbor(Vector2.right) == null && !TileOutOfBounds(currentTile.coord + Vector2.right))
+        { spawnDirections.Add(Vector2.right);}
+
+        if (currentTile.GetTileNeighbor(Vector2.up) == null && !TileOutOfBounds(currentTile.coord + Vector2.up))
+        { spawnDirections.Add(Vector2.up);}
+
+        if (currentTile.GetTileNeighbor(Vector2.down) == null && !TileOutOfBounds(currentTile.coord + Vector2.down))
+        { spawnDirections.Add(Vector2.down);}
+
+
+        // [[ CHECK WHICH NEIGHBOR IS CLOSEST TO EXIT ]]
+
+        Vector2 closestToEnd = Vector2.zero;
+        float smallestDistance = -1;
+
+        foreach (Vector2 direction in spawnDirections)
+        {
+            // if direction is end, return end
+            if (currentTile.coord + direction == endTile.coord)
+            {
+                Debug.Log("Found End Tile :: " + currentTile.coord + direction);
+                return direction;
+            }
+            // else if direction not end
+            else
+            {
+                // if default, set first value to smallest
+                if (smallestDistance == -1) { closestToEnd = direction; smallestDistance = Vector2.Distance(direction, endTile.coord); }
+
+                // else if the current coord is closer to end, 
+                else if (Vector2.Distance(direction, endTile.coord) < smallestDistance) { closestToEnd = direction; smallestDistance = Vector2.Distance(direction, endTile.coord); }
+            }
+        }
+        
+        return closestToEnd;
+    }
+
+    #endregion
+
+
+
+    #region BRANCHES =================================================
 
     // << CREATE RANDOM BRANCH NODES >> ** loops through given path and creates a branch from it
     public List<TileGenerationManager> PathCreateBranchNodes(List<TileGenerationManager> path, int spawnWeight = 3)
@@ -340,7 +466,7 @@ public class DungeonGenerationManager : MonoBehaviour
     public List<TileGenerationManager> CreateBranchFromNode(TileGenerationManager branchNode)
     {
         List<TileGenerationManager> branch = new List<TileGenerationManager> { branchNode }; // create branch list
-        DiscoverPath(branchNode, branch, maxBranchLength, branchNode.transform); // discover path from node
+        DiscoverRandomPath(branchNode, branch, maxBranchLength, branchNode.transform); // discover path from node
 
         // set each tile to inBranch
         foreach (TileGenerationManager tile in branch)
@@ -350,7 +476,7 @@ public class DungeonGenerationManager : MonoBehaviour
 
         return branch;
     }
-
+    #endregion
 
     // ----------------------------------------- ROOM GENERATION -----------------------------------------------------
     // take the "start" of room and set a certain pattern of tiles around tile as a room tile
