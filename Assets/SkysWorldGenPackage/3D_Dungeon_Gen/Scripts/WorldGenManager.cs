@@ -63,7 +63,7 @@ public class WorldGenManager : MonoBehaviour
             npcManager.spawnWeight = npcSpawnWeight;
             */
 
-            StartCoroutine(dunGenManager.Generate(Vector3.zero));
+            StartCoroutine(dunGenManager.Generate());
         }
         
 

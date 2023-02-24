@@ -36,6 +36,10 @@ public class DungeonGenerationManager : MonoBehaviour
 
     public bool debug;
     public bool initOnSceneStart;
+
+    public GameObject beginMainPath;
+    public GameObject endMainPath;
+
     public LineRenderer outlineLR;
     public LineRenderer mainPathLR;
     public Material mainPath_material;
@@ -45,9 +49,7 @@ public class DungeonGenerationManager : MonoBehaviour
     [Header("Generation Parameters")]
     public bool generationStarted;
     public bool generationFinished;
-    [HideInInspector]
     public TileGenerationManager dungeonStartTile;
-    [HideInInspector]
     public TileGenerationManager dungeonEndTile;
     public Vector2 startTileCoord = Vector2.zero;
     public Vector2 endTileCoord = new Vector2(5, 0);
@@ -70,6 +72,7 @@ public class DungeonGenerationManager : MonoBehaviour
 
     [Header("Branches")]
     public int maxBranchLength = 5;
+    public float branchSpawnWeight = 0.5f;
     public List<List<TileGenerationManager>> branches = new List<List<TileGenerationManager>>(); // all branches
 
     [Header("Generation")]
@@ -149,7 +152,7 @@ public class DungeonGenerationManager : MonoBehaviour
 
     // ======================================= DUNGEON GENERATION =================================================
 
-    public IEnumerator Generate(Vector2 startTileCoord)
+    public IEnumerator Generate()
     {
         generationStarted = true;
 
@@ -174,30 +177,32 @@ public class DungeonGenerationManager : MonoBehaviour
         // << RANDOMIZE MAIN PATH HEIGHT >>
         RandomizePathHeight(mainPath);
 
+        
         // << CREATE ROOMS >>
         foreach (TileGenerationManager tile in roomStartTiles)
         {
             CreateRoomFromTile(tile);
         }
+        
 
-        /*
+        
         // << CREATE MAIN PATH BRANCHES >>
         // get branch nodes
-        List<TileGenerationManager> mainPathBranchNodes = PathCreateBranchNodes(mainPath);
+        List<TileGenerationManager> mainPathBranchNodes = PathCreateBranchNodes(mainPath, branchSpawnWeight);
 
         // from nodes , create new paths
         foreach (TileGenerationManager node in mainPathBranchNodes)
         {
             branches.Add(CreateBranchFromNode(node)); //create new branch
         }
-        */
-
+        
         // for each branch path, randomize height
         foreach (List<TileGenerationManager> branch in branches)
         {
             RandomizePathHeight(branch);
         }
         
+
         // << SET EXITS >>
         // create necessary exits in all tiles
         foreach (TileGenerationManager tile in allTiles)
@@ -313,24 +318,22 @@ public class DungeonGenerationManager : MonoBehaviour
 
     #region END POINT PATH GENERATION =============================
     // << DISCOVER PATH BETWEEN TWO END TILES >>
-    public void DiscoverPathBetweenPoints(TileGenerationManager currentTile, TileGenerationManager endTile, List<TileGenerationManager> path, Transform parent, bool mainPath = false, int horzFavor = 1)
+    public void DiscoverPathBetweenPoints(TileGenerationManager currentTile, TileGenerationManager endTile, List<TileGenerationManager> path, Transform parent, bool inMainPath = false, int horzFavor = 1)
     {
         //print("Start Discover Path");
         Vector2 spawnDirection = GetClosestSpawnDirection(currentTile, endTile);
 
-        // ** IF NOT END **
+        // ** IF END IS NOT NEIGHBOR **
         if (currentTile.coord + spawnDirection != endTile.coord)
         {
             TileGenerationManager newTile = CreateNewTile(currentTile.coord + spawnDirection, parent, path);
 
-            /*
             // << ROOM SPAWN CHANCE >>
             if (Random.Range((float)0, (float)1) < roomSpawnWeight)
             {
                 newTile.roomTile = true;
                 roomStartTiles.Add(newTile);
             }
-            */
 
             // set path neighbors
             newTile.prevPathTile = currentTile;
@@ -345,21 +348,29 @@ public class DungeonGenerationManager : MonoBehaviour
             if (path.Count > (generationBoundaries.x * generationBoundaries.y)) { Debug.LogError("Infinite Loop Generation"); return; }
 
             // continue recursion
-            DiscoverPathBetweenPoints(newTile, endTile, path, parent, mainPath, horzFavor);
+            DiscoverPathBetweenPoints(newTile, endTile, path, parent, inMainPath, horzFavor);
             
 
             mainPathGenFinished = true;  
         }
 
         // ** IF END IS FOUND **
-        else if (mainPath)
+        else if (inMainPath)
         {
+            // set path neighbors
+            endTile.prevPathTile = currentTile;
+            currentTile.nextPathTile = endTile;
+
+            // set height
+            endTile.tileHeightLevel = currentTile.tileHeightLevel;
+
+            // make sure main path is at the end
+            mainPath.Add(endTile);
+
             mainPathGenFinished = true;
         }
 
     }
-
-
 
     // << GET RANDOM VALID SPAWN DIRECTION >>
     public Vector2 GetClosestSpawnDirection(TileGenerationManager currentTile, TileGenerationManager endTile)
@@ -369,6 +380,26 @@ public class DungeonGenerationManager : MonoBehaviour
         // [[ ALL DIRECTIONS ]]
         // if neighbor not present in that direction... add to possible directions
         List<Vector2> spawnDirections = new List<Vector2>();
+
+
+        // << ITERATE THROUGH NEIGHBORS TO CHECK FOR END >>
+        Debug.Log("Current Tile :: " + currentTile.coord);
+        foreach (TileGenerationManager neighbor in currentTile.tileNeighbors)
+        {
+            if (neighbor != null) 
+            {
+                // Debug.Log("  >> neighbor :: " + neighbor);
+
+                if (neighbor.coord == endTile.coord)
+                {
+                    Debug.Log("Found End Tile :: " + neighbor.coord);
+
+                    return endTile.coord - currentTile.coord;
+                }
+            }
+        }
+
+        // [[ DETERMINE EMPTY NEIGHBORS & VALID DIRECTIONS TO MOVE PATH ]]
 
         if (currentTile.GetTileNeighbor(Vector2.left) == null && !TileOutOfBounds(currentTile.coord + Vector2.left))
         { spawnDirections.Add(Vector2.left);}
@@ -385,7 +416,7 @@ public class DungeonGenerationManager : MonoBehaviour
 
         // [[ CHECK WHICH NEIGHBOR IS CLOSEST TO EXIT ]]
 
-        Vector2 closestToEnd = Vector2.zero;
+        Vector2 closest_dir_to_end = Vector2.zero;
         float smallestDistance = -1;
 
         foreach (Vector2 direction in spawnDirections)
@@ -399,25 +430,37 @@ public class DungeonGenerationManager : MonoBehaviour
             // else if direction not end
             else
             {
+
                 // if default, set first value to smallest
-                if (smallestDistance == -1) { closestToEnd = direction; smallestDistance = Vector2.Distance(direction, endTile.coord); }
+                if (smallestDistance == -1) 
+                { 
+                    closest_dir_to_end = direction; 
+                    smallestDistance = Vector2.Distance(currentTile.coord + direction, endTile.coord); 
+                }
 
                 // else if the current coord is closer to end, 
-                else if (Vector2.Distance(direction, endTile.coord) < smallestDistance) { closestToEnd = direction; smallestDistance = Vector2.Distance(direction, endTile.coord); }
+                else if (Vector2.Distance(currentTile.coord + direction, endTile.coord) < smallestDistance) 
+                { 
+                    // set closest direction
+                    closest_dir_to_end = direction; 
+                    smallestDistance = Vector2.Distance(currentTile.coord + direction, endTile.coord); 
+                }
+
+
             }
         }
-        
-        return closestToEnd;
+
+        Debug.Log("Next Path Tile :: " + (currentTile.coord + closest_dir_to_end) + " != " + endTile.coord + "[distance: " + smallestDistance);
+
+        return closest_dir_to_end;
     }
 
     #endregion
 
-
-
     #region BRANCHES =================================================
 
     // << CREATE RANDOM BRANCH NODES >> ** loops through given path and creates a branch from it
-    public List<TileGenerationManager> PathCreateBranchNodes(List<TileGenerationManager> path, int spawnWeight = 3)
+    public List<TileGenerationManager> PathCreateBranchNodes(List<TileGenerationManager> path, float branchSpawnWeight)
     {
         List<TileGenerationManager> branchNodes = new List<TileGenerationManager>();
 
@@ -434,10 +477,10 @@ public class DungeonGenerationManager : MonoBehaviour
             }
 
             List<Vector2> emptyNeighbors = tile.GetEmptyNeighbors(); // get tile empty neighbors
-            int random = Random.Range(1, 10); // get random int
+            float random = Random.Range(0, 1); // get random float
 
             // if cur tile has empty neighbors and random value is within weight...
-            if (emptyNeighbors.Count > 0 && random <= spawnWeight)
+            if (emptyNeighbors.Count > 0 && random <= branchSpawnWeight)
             {
                 // create branch
                 Vector2 branchDir = emptyNeighbors[Random.Range(0, emptyNeighbors.Count - 1)]; // choose random valid direction
@@ -771,4 +814,9 @@ public class DungeonGenerationManager : MonoBehaviour
 
     }
 
+    private void OnDrawGizmos()
+    {
+
+
+    }
 }

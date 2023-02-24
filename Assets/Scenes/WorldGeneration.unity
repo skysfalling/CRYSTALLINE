@@ -636,15 +636,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 663592145764162602, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: endTileCoord.x
-      value: 4
+      value: -4
       objectReference: {fileID: 0}
     - target: {fileID: 663592145764162602, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: endTileCoord.y
-      value: 3
+      value: -4
       objectReference: {fileID: 0}
     - target: {fileID: 663592145764162602, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: roomSpawnWeight
-      value: 0.2
+      value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: 663592145764162602, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: vertHeightFavor
@@ -653,6 +653,14 @@ PrefabInstance:
     - target: {fileID: 663592145764162602, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: initOnSceneStart
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 663592145764162602, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
+      propertyPath: startTileCoord.x
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 663592145764162602, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
+      propertyPath: startTileCoord.y
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 663592145764162602, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: mainPath_material
@@ -706,6 +714,14 @@ PrefabInstance:
       propertyPath: obstacleSpawnWeight
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 804983016245958746, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
+      propertyPath: m_Icon
+      value: 
+      objectReference: {fileID: 7174288486110832750, guid: 0000000000000000d000000000000000, type: 0}
+    - target: {fileID: 2472446023510477734, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
+      propertyPath: m_Icon
+      value: 
+      objectReference: {fileID: -5487077368411116049, guid: 0000000000000000d000000000000000, type: 0}
     - target: {fileID: 5368966405226815757, guid: 41a54687b899b254cba8d30cfd59da77, type: 3}
       propertyPath: m_Name
       value: GameManager

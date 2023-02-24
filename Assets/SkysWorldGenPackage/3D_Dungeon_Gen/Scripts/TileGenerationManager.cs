@@ -724,8 +724,6 @@ public class TileGenerationManager : MonoBehaviour
 
     }
 
-
-
     // <<<< CREATE OPTIMIZED WALLS >>>>
     /*
      * If an exit is needed, create two seperate walls so that there's space in between
@@ -786,7 +784,7 @@ public class TileGenerationManager : MonoBehaviour
         new_wall.transform.parent = wallParent.transform;
 
         new_wall.transform.position = CellPositionMidpoint(edgeCells[0], edgeCells[edgeCells.Count - 1]);
-        new_wall.transform.position += new Vector3(0, (cellSize * wallHeight * 0.5f), 0);
+        new_wall.transform.position += new Vector3(0, (cellSize * wallHeight * 0.5f) - (cellSize * 0.25f), 0);
 
 
         new_wall.transform.localScale = new Vector3(cellSize, cellSize * wallHeight, cellSize * (edgeCells.Count + 2));
@@ -803,7 +801,6 @@ public class TileGenerationManager : MonoBehaviour
         return wall;
 
     }
-
 
     // <<<< SET VALID ROOM WALLS >>>>
     public void SetRoomWalls()
@@ -914,7 +911,6 @@ public class TileGenerationManager : MonoBehaviour
     }
 
     // <<<< COMBINE BASIC MESHES - creates better performance >>>>
-    
     public void CombineMeshes()
     {
         var combine = new CombineInstance[sourceMeshFilters.Count];
@@ -946,7 +942,6 @@ public class TileGenerationManager : MonoBehaviour
         generatedMeshParent.isStatic = true;  
     }
     
-
     // <<<< SET SPAWNS >>>>
     public void SetSpawns()
     {
@@ -984,7 +979,6 @@ public class TileGenerationManager : MonoBehaviour
     }
 
     //=========================================== HELPER FUNCTIONS =============================================
-
     public Cell GetCell(Vector3 coord)
     {
         foreach (Cell cell in allCells)
@@ -1019,7 +1013,6 @@ public class TileGenerationManager : MonoBehaviour
         return null;
 
     }
-
 
     public void SetAllCellsAbove(Cell cell, CELL_TYPE cellType)
     {
